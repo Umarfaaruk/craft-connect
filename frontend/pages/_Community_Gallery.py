@@ -6,7 +6,7 @@ from utils import display_header
 
 # --- 1. Configuration ---
 st.set_page_config(layout="wide", page_title="Community Gallery")
-BACKEND_URL = "http://127.0.0.1:8000"  # URL of your running FastAPI backend
+BACKEND_URL = "https://craft-connect-backend-0qs7.onrender.com"  # URL of your running FastAPI backend
 
 # --- 2. Header and Title ---
 display_header()
