@@ -16,7 +16,7 @@ UPLOAD_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/upload"
 async def login_for_token(username: str, password: str) -> dict:
     async with httpx.AsyncClient() as client:
         try:
-            payload = {"phone": username, "password": password}
+            payload ={"phone": username, "password": password}
             response = await client.post(TOKEN_URL, json=payload)
             response.raise_for_status()
             return response.json()

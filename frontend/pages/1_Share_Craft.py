@@ -18,7 +18,7 @@ def show_auth_form():
     st.info("Don't have an account? You must register on the main Swecha Corpus platform first.")
 
     with st.form("login_form"):
-        username = st.text_input("Username (Phone Number)")
+        username = st.text_input("Phone Number")
         password = st.text_input("Password", type="password")
         
         if st.form_submit_button("Sign In", type="primary"):
