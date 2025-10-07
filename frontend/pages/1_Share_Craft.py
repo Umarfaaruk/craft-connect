@@ -6,7 +6,7 @@ from utils import display_header
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="Share Your Craft")
-BACKEND_URL = "http://127.0.0.1:8000"  # URL of your running FastAPI backend
+BACKEND_URL = "https://craft-connect-backend-0qs7.onrender.com"  # URL of your running FastAPI backend
 
 # --- Header ---
 display_header()
