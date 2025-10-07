@@ -23,10 +23,6 @@ if 'gallery_items' not in st.session_state:
 # --- Display the persistent header ---
 display_header()
 
-# --- ADD THESE TWO DEBUG LINES ---
-st.header("Debug Info:")
-st.write(f"Attempting to connect to backend at: {st.secrets.get('BACKEND_URL', 'SECRET NOT FOUND')}")
-# --- END OF DEBUG LINES ---
 
 # --- Main Page Content ---
 st.title("Welcome to Craft Connect ✨")
