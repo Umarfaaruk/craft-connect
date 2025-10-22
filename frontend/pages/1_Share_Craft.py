@@ -6,7 +6,9 @@ from utils import display_header
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="Share Your Craft")
-BACKEND_URL = "https://craft-connect-backend-0qs7.onrender.com"  # URL of your running FastAPI backend
+# This line now securely gets the URL from your Streamlit Secrets.
+# When you run locally, it will default to your local backend.
+BACKEND_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
 
 # --- Header ---
 display_header()
@@ -23,7 +25,7 @@ def show_auth_form():
         
         if st.form_submit_button("Sign In", type="primary"):
             try:
-                # API call to your backend's /token endpoint, which proxies to the Corpus API
+                # API call to your backend's /token endpoint
                 response = requests.post(
                     f"{BACKEND_URL}/token",
                     data={"username": username, "password": password}
@@ -52,8 +54,7 @@ def show_uploader():
     )
     description = st.text_area("Describe your creation:", height=150)
     
-    # In a real app, you would fetch these categories from the API.
-    # For now, we use placeholders that match what the API might expect.
+    # Placeholder categories
     categories = {
         "category_1": "Painting",
         "category_2": "Sculpture",
@@ -81,10 +82,8 @@ def show_uploader():
         else:
             with st.spinner("Publishing your craft..."):
                 try:
-                    # Prepare the authorization header with the saved token
                     auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
                     
-                    # Prepare the complete payload with all required fields
                     payload = {
                         'description': description,
                         'category_id': category_id,
@@ -93,7 +92,6 @@ def show_uploader():
                     }
                     files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                     
-                    # Make the API call to your backend's /crafts endpoint
                     response = requests.post(
                         f"{BACKEND_URL}/crafts",
                         data=payload,
@@ -107,14 +105,12 @@ def show_uploader():
                         time.sleep(2)
                         st.switch_page("pages/2_Community_Gallery.py")
                     else:
-                        # Display the specific error message from the API
                         st.error(f"Upload failed: {response.json().get('detail', 'An unknown error occurred.')}")
 
                 except requests.exceptions.ConnectionError as e:
                     st.error(f"Connection failed. Is the backend server running? Details: {e}")
 
 # --- Page Router ---
-# This logic decides whether to show the login form or the uploader page.
 if not st.session_state.get("authenticated", False):
     show_auth_form()
 else:
