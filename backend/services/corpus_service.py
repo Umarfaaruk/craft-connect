@@ -14,10 +14,15 @@ RECORDS_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/"
 UPLOAD_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/upload"
 
 async def login_for_token(username: str, password: str) -> dict:
+    """
+    Logs in to the external Corpus API by sending credentials.
+    Returns the access token if successful.
+    """
     async with httpx.AsyncClient() as client:
         try:
             payload = {"phone": username, "password": password}
             headers = {"Content-Type": "application/json"}
+            
             response = await client.post(TOKEN_URL, json=payload, headers=headers)
             response.raise_for_status()
             return response.json()
@@ -25,6 +30,9 @@ async def login_for_token(username: str, password: str) -> dict:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
 async def get_user_from_token(token: str) -> dict:
+    """
+    Gets the current user's data from the Corpus API using a token.
+    """
     async with httpx.AsyncClient() as client:
         try:
             headers = {"Authorization": f"Bearer {token}"}
@@ -35,8 +43,12 @@ async def get_user_from_token(token: str) -> dict:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate token with Corpus API")
 
 async def get_all_crafts_from_corpus() -> list:
+    """
+    Fetches all public craft records from the Corpus API.
+    """
     async with httpx.AsyncClient() as client:
         try:
+            # Note: This assumes the /records endpoint is public.
             response = await client.get(RECORDS_URL)
             response.raise_for_status()
             return response.json()
@@ -44,12 +56,17 @@ async def get_all_crafts_from_corpus() -> list:
             raise HTTPException(status_code=e.response.status_code, detail="Could not fetch crafts from Corpus API.")
 
 def get_media_type_from_content(content_type: str) -> str:
+    """Determines the media type based on the file's content type."""
     if "video" in content_type: return "video"
     if "audio" in content_type: return "audio"
     if "image" in content_type or "pdf" in content_type: return "image"
     return "text"
 
 async def upload_craft_to_corpus(token: str, description: str, file: UploadFile, category_id: str, language: str, release_rights: str) -> dict:
+    """
+    Uploads a new craft to the Corpus API with all required fields.
+    """
+    # Get the user's ID from their token to associate with the upload.
     user_data = await get_user_from_token(token)
     user_id = user_data.get("id")
     if not user_id:
@@ -57,14 +74,22 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
+            # Construct the complete data payload required by the Corpus API.
             data = {
-                "title": file.filename, "description": description, "user_id": user_id,
-                "category_id": category_id, "language": language, "release_rights": release_rights,
+                "title": file.filename,
+                "description": description,
+                "user_id": user_id,
+                "category_id": category_id,
+                "language": language,
+                "release_rights": release_rights,
                 "media_type": get_media_type_from_content(file.content_type),
-                "upload_uuid": str(uuid.uuid4()), "filename": file.filename, "total_chunks": 1,
+                "upload_uuid": str(uuid.uuid4()),
+                "filename": file.filename,
+                "total_chunks": 1,
             }
             files = {"file": (file.filename, await file.read(), file.content_type)}
             headers = {"Authorization": f"Bearer {token}"}
+            
             response = await client.post(UPLOAD_URL, data=data, files=files, headers=headers)
             response.raise_for_status()
             return response.json()
