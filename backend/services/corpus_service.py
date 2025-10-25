@@ -295,11 +295,57 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
         logger.info(f"DEBUG - Files: {list(files_data.keys())}")
         logger.info(f"DEBUG - Headers: {headers}")
         
-        # Make the request using requests library
-        response = requests.post(UPLOAD_URL, data=form_data, files=files_data, headers=headers, timeout=60)
-        response.raise_for_status()
-        logger.info("DEBUG - Upload successful with requests library")
-        return response.json()
+        # Try different approaches for sending data
+        logger.info("DEBUG - Attempting upload with form data")
+        
+        # Method 1: Try with form data and files
+        try:
+            response = requests.post(UPLOAD_URL, data=form_data, files=files_data, headers=headers, timeout=60)
+            response.raise_for_status()
+            logger.info("DEBUG - Upload successful with form data")
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            logger.warning(f"DEBUG - Form data failed: {e.response.status_code} - {e.response.text}")
+            
+            # Method 2: Try with JSON data (without file first)
+            logger.info("DEBUG - Trying with JSON data")
+            try:
+                json_headers = headers.copy()
+                json_headers["Content-Type"] = "application/json"
+                
+                # Remove file from data for JSON
+                json_data = data.copy()
+                
+                response = requests.post(UPLOAD_URL, json=json_data, headers=json_headers, timeout=60)
+                response.raise_for_status()
+                logger.info("DEBUG - Upload successful with JSON data")
+                return response.json()
+            except requests.exceptions.HTTPError as e2:
+                logger.warning(f"DEBUG - JSON data failed: {e2.response.status_code} - {e2.response.text}")
+                
+                # Method 3: Try with multipart/form-data explicitly
+                logger.info("DEBUG - Trying with explicit multipart")
+                try:
+                    # Create a proper multipart form
+                    from requests_toolbelt.multipart.encoder import MultipartEncoder
+                    
+                    multipart_data = MultipartEncoder(
+                        fields={
+                            **form_data,
+                            'file': (file.filename, file_content, content_type)
+                        }
+                    )
+                    
+                    multipart_headers = headers.copy()
+                    multipart_headers['Content-Type'] = multipart_data.content_type
+                    
+                    response = requests.post(UPLOAD_URL, data=multipart_data, headers=multipart_headers, timeout=60)
+                    response.raise_for_status()
+                    logger.info("DEBUG - Upload successful with explicit multipart")
+                    return response.json()
+                except Exception as e3:
+                    logger.error(f"DEBUG - Explicit multipart failed: {str(e3)}")
+                    raise e  # Re-raise the original error
         
     except requests.exceptions.HTTPError as e:
         logger.error(f"Corpus API HTTP error: {e.response.status_code}")

@@ -146,11 +146,8 @@ def show_uploader():
     
     description = st.text_area("Description", height=100)
     
-    category_id = st.selectbox(
-        "Category:",
-        options=list(CATEGORIES.keys()),
-        format_func=lambda x: CATEGORIES[x]
-    )
+    # Remove category selection - use default category
+    category_id = "category_1"  # Default category
     
     # Language options - only English and Telugu
     LANGUAGE_OPTIONS = {
@@ -174,7 +171,7 @@ def show_uploader():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("Publish to Gallery", type="primary", use_container_width=True):
-            if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
+            if not all([uploaded_file, description.strip(), language]):
                 st.warning("Please fill out all fields.")
             elif 'access_token' not in st.session_state:
                 st.error("Please log in again.")

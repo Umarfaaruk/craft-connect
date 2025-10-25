@@ -1,6 +1,15 @@
 # frontend/Home.py
 import streamlit as st
-from utils import display_header
+import sys
+import os
+# Add current directory to path for utils import
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from utils import display_header
+except ImportError:
+    # Fallback for when running directly
+    sys.path.append('.')
+    from utils import display_header
 
 # --- Page Configuration ---
 st.set_page_config(
