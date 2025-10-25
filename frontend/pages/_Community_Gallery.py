@@ -1,11 +1,17 @@
 # frontend/pages/_Community_Gallery.py
 import streamlit as st
 import requests
+import sys
+import os
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import display_header
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="Community Gallery")
-BACKEND_URL = "https://craft-connect-backend-0qs7.onrender.com"
+# Get backend URL from secrets, or use default localhost for development
+BACKEND_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
 
 display_header()
 
@@ -52,6 +58,12 @@ except requests.exceptions.Timeout:
 except requests.exceptions.ConnectionError:
     st.error("Could not connect to the server. Please check your internet connection or try again later.")
     st.info("If the problem persists, the backend server may be temporarily unavailable.")
+except requests.exceptions.HTTPError as e:
+    if e.response.status_code == 404:
+        st.error("The gallery endpoint was not found. The backend may not be deployed or the URL is incorrect.")
+        st.info(f"Attempted to connect to: {BACKEND_URL}/crafts")
+    else:
+        st.error(f"HTTP error {e.response.status_code}: {str(e)}")
 except requests.exceptions.RequestException as e:
     st.error(f"An error occurred while loading the gallery: {str(e)}")
 except Exception as e:

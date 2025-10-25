@@ -2,6 +2,11 @@
 import streamlit as st
 import time
 import requests
+import sys
+import os
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import display_header
 
 # --- Configuration ---

@@ -50,40 +50,8 @@ st.markdown("""
     </p>
     <p style='font-size: 1.05rem; line-height: 1.9;'>
         Craft Connect is our initiative to document, preserve, and celebrate these traditional crafts 
-        for future generations. We focus on various aspects of our cultural heritage including:
+        for future generations.
     </p>
-</div>
-""", unsafe_allow_html=True)
-
-# --- Cultural Categories ---
-st.markdown("""
-<div style='max-width: 900px; margin: 0 auto; margin-bottom: 3rem;'>
-    <div style='display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; text-align: center;'>
-        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
-            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>📚</p>
-            <strong>Fables & Folk Tales</strong>
-        </div>
-        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
-            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🎶</p>
-            <strong>Folk Songs & Music</strong>
-        </div>
-        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
-            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🛠️</p>
-            <strong>Traditional Skills</strong>
-        </div>
-        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
-            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🏛️</p>
-            <strong>Cultural History</strong>
-        </div>
-        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
-            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🌾</p>
-            <strong>Food & Agriculture</strong>
-        </div>
-        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
-            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>📰</p>
-            <strong>Historical Archives</strong>
-        </div>
-    </div>
 </div>
 """, unsafe_allow_html=True)
 
