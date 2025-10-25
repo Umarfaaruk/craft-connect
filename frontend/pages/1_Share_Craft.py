@@ -97,14 +97,52 @@ def show_uploader():
         format_func=lambda x: CATEGORIES[x]
     )
     
-    language = st.text_input("Language", "English")
+    # Language options as per Corpus API requirements
+    LANGUAGE_OPTIONS = {
+        "NA": "Not Applicable",
+        "hindi": "Hindi",
+        "bengali": "Bengali", 
+        "telugu": "Telugu",
+        "marathi": "Marathi",
+        "tamil": "Tamil",
+        "gujarati": "Gujarati",
+        "urdu": "Urdu",
+        "kannada": "Kannada",
+        "odia": "Odia",
+        "malayalam": "Malayalam",
+        "punjabi": "Punjabi",
+        "assamese": "Assamese",
+        "bodo": "Bodo",
+        "dogri": "Dogri",
+        "kashmiri": "Kashmiri",
+        "konkani": "Konkani",
+        "maithili": "Maithili",
+        "meitei": "Meitei",
+        "nepali": "Nepali",
+        "sanskrit": "Sanskrit",
+        "santali": "Santali",
+        "sindhi": "Sindhi"
+    }
+    
+    language = st.selectbox(
+        "Language:",
+        options=list(LANGUAGE_OPTIONS.keys()),
+        format_func=lambda x: LANGUAGE_OPTIONS[x],
+        index=0  # Default to "NA"
+    )
+    
+    release_rights = st.selectbox(
+        "Release Rights:",
+        options=["Yes", "No"],
+        index=0  # Default to "Yes"
+    )
     
     st.markdown("---")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("Publish to Gallery", type="primary", use_container_width=True):
-            if not all([uploaded_file, description.strip(), category_id, language]):
+            if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
                 st.warning("Please fill out all fields.")
             elif 'access_token' not in st.session_state:
                 st.error("Please log in again.")
@@ -117,6 +155,7 @@ def show_uploader():
                             'description': description,
                             'category_id': category_id,
                             'language': language,
+                            'release_rights': release_rights,
                         }
                         files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                         
