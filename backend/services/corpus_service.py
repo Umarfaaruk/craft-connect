@@ -287,58 +287,65 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
             logger.info(f"DEBUG - Upload URL: {UPLOAD_URL}")
             logger.info(f"DEBUG - Headers: {headers}")
             
-            # Method 1: Try with original data
-            logger.info(f"DEBUG - Trying with original data: {data}")
+            # The issue is that ALL fields are missing, not just release_rights
+            # This means the multipart form data is not being sent correctly
+            # Let's try a simpler, more direct approach
+            
+            logger.info(f"DEBUG - Trying direct multipart form approach")
+            
+            # Create multipart form data with all fields
+            multipart_data = {}
+            
+            # Add all form fields as strings
+            for key, value in data.items():
+                multipart_data[key] = str(value)
+            
+            # Add the file
+            multipart_data["file"] = (file.filename, file_content, content_type)
+            
+            logger.info(f"DEBUG - Multipart data keys: {list(multipart_data.keys())}")
+            logger.info(f"DEBUG - Form fields: {[(k, v) for k, v in multipart_data.items() if k != 'file']}")
+            
             try:
-                multipart_data = {}
-                for key, value in data.items():
-                    multipart_data[key] = (None, str(value))
-                multipart_data["file"] = (file.filename, file_content, content_type)
-                
                 response = await client.post(UPLOAD_URL, files=multipart_data, headers=headers)
                 response.raise_for_status()
-                logger.info("DEBUG - Upload successful with original data")
+                logger.info("DEBUG - Upload successful with direct multipart approach")
                 return response.json()
             except httpx.HTTPStatusError as e:
-                logger.warning(f"DEBUG - Original data failed: {e.response.status_code} - {e.response.text}")
+                logger.error(f"DEBUG - Direct multipart failed: {e.response.status_code} - {e.response.text}")
                 
-                # Method 1b: Try with alternative field names
-                logger.info(f"DEBUG - Trying with alternative field names: {alternative_data}")
+                # Fallback: Try with requests library (synchronous)
+                logger.info(f"DEBUG - Trying with requests library as fallback")
                 try:
-                    multipart_data_alt = {}
-                    for key, value in alternative_data.items():
-                        multipart_data_alt[key] = (None, str(value))
-                    multipart_data_alt["file"] = (file.filename, file_content, content_type)
+                    import requests
                     
-                    response = await client.post(UPLOAD_URL, files=multipart_data_alt, headers=headers)
+                    # Prepare form data
+                    form_data = {}
+                    for key, value in data.items():
+                        form_data[key] = str(value)
+                    
+                    # Prepare files
+                    files_data = {
+                        'file': (file.filename, file_content, content_type)
+                    }
+                    
+                    # Convert headers to dict (remove any non-string values)
+                    requests_headers = {}
+                    for k, v in headers.items():
+                        if isinstance(v, (str, bytes)):
+                            requests_headers[k] = v
+                    
+                    logger.info(f"DEBUG - Using requests with form_data: {list(form_data.keys())}")
+                    logger.info(f"DEBUG - Using requests with files: {list(files_data.keys())}")
+                    
+                    response = requests.post(UPLOAD_URL, data=form_data, files=files_data, headers=requests_headers, timeout=60)
                     response.raise_for_status()
-                    logger.info("DEBUG - Upload successful with alternative field names")
+                    logger.info("DEBUG - Upload successful with requests library")
                     return response.json()
-                except httpx.HTTPStatusError as e2:
-                    logger.warning(f"DEBUG - Alternative field names failed: {e2.response.status_code} - {e2.response.text}")
                     
-                    # Method 2: Try with separate data and files
-                    try:
-                        logger.info(f"DEBUG - Trying separate data and files method")
-                        response = await client.post(UPLOAD_URL, data=data, files=files, headers=headers)
-                        response.raise_for_status()
-                        logger.info("DEBUG - Upload successful with separate data/files method")
-                        return response.json()
-                    except httpx.HTTPStatusError as e3:
-                        logger.warning(f"DEBUG - Separate data/files method failed: {e3.response.status_code} - {e3.response.text}")
-                        
-                        # Method 3: Try with JSON data and file upload
-                        logger.info(f"DEBUG - Trying JSON data method")
-                        json_headers = headers.copy()
-                        json_headers["Content-Type"] = "application/json"
-                        
-                        # Remove file from data for JSON
-                        json_data = data.copy()
-                        
-                        response = await client.post(UPLOAD_URL, json=json_data, files=files, headers=json_headers)
-                        response.raise_for_status()
-                        logger.info("DEBUG - Upload successful with JSON method")
-                        return response.json()
+                except Exception as e2:
+                    logger.error(f"DEBUG - Requests library fallback failed: {str(e2)}")
+                    raise e  # Re-raise the original error
         except httpx.HTTPStatusError as e:
             logger.error(f"Corpus API HTTP error: {e.response.status_code}")
             logger.error(f"Corpus API error response: {e.response.text}")
