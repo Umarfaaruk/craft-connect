@@ -194,7 +194,7 @@ def show_uploader():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("Publish to Gallery", type="primary", use_container_width=True):
-            if not all([uploaded_file, description.strip(), category_id, language]):
+            if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
                 st.warning("Please fill out all fields.")
             elif 'access_token' not in st.session_state:
                 st.error("Please log in again.")
@@ -210,6 +210,9 @@ def show_uploader():
                             'release_rights': release_rights,
                         }
                         files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                        
+                        # Debug: Print payload to see what's being sent
+                        st.write("Debug - Payload being sent:", payload)
                         
                         response = requests.post(
                             f"{BACKEND_URL}/crafts",

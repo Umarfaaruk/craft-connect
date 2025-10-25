@@ -267,6 +267,9 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
                 "filename": file.filename,
                 "total_chunks": 1,
             }
+            
+            # Debug: Print data being sent to Corpus API
+            logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
             files = {"file": (file.filename, await file.read(), content_type)}
             headers = {"Authorization": f"Bearer {token}"}
             
