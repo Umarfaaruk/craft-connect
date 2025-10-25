@@ -18,8 +18,5 @@ def display_header():
                     for key in list(st.session_state.keys()):
                         del st.session_state[key]
                     st.switch_page("Home.py")
-        else:
-            if st.button("Sign In"):
-                st.switch_page("pages/1_Share_Craft.py")
 
     st.markdown("---")

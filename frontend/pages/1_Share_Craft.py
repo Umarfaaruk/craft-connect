@@ -12,35 +12,45 @@ display_header()
 
 # --- Authentication Form ---
 def show_auth_form():
-    """Displays the login form."""
-    st.markdown("<h1 style='text-align: center;'>Sign In</h1>", unsafe_allow_html=True)
-    st.markdown("---")
+    """Displays the login form in a square box."""
+    # Center the form using empty columns
+    col1, col2, col3 = st.columns([1, 1.5, 1])
     
-    with st.form("login_form"):
-        username = st.text_input("Phone Number")
-        password = st.text_input("Password", type="password")
+    with col2:
+        # Create a styled container for the login form
+        st.markdown("""
+        <div style='background-color: #f8f9fa; padding: 2.5rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 450px; margin: 2rem auto;'>
+            <h2 style='text-align: center; margin-bottom: 2rem; color: #333;'>Sign In</h2>
+        </div>
+        """, unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
+        # Form container
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Phone Number", placeholder="Enter your phone number")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            
             submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
-        
-        if submit:
-            try:
-                response = requests.post(
-                    f"{BACKEND_URL}/token",
-                    data={"username": username, "password": password}
-                )
-                if response.status_code == 200:
-                    token_data = response.json()
-                    st.session_state['access_token'] = token_data.get('access_token')
-                    st.session_state['authenticated'] = True
-                    st.success("Login Successful!")
-                    time.sleep(1)
-                    st.rerun()
+            
+            if submit:
+                if not username or not password:
+                    st.error("Please enter both phone number and password.")
                 else:
-                    st.error("Login failed. Please check your credentials.")
-            except requests.exceptions.ConnectionError:
-                st.error("Connection failed. Is the backend server running?")
+                    try:
+                        response = requests.post(
+                            f"{BACKEND_URL}/token",
+                            data={"username": username, "password": password}
+                        )
+                        if response.status_code == 200:
+                            token_data = response.json()
+                            st.session_state['access_token'] = token_data.get('access_token')
+                            st.session_state['authenticated'] = True
+                            st.success("Login Successful!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Login failed. Please check your credentials.")
+                    except requests.exceptions.ConnectionError:
+                        st.error("Connection failed. Is the backend server running?")
 
 # --- Uploader Page ---
 def show_uploader():

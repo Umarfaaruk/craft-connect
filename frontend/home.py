@@ -22,11 +22,31 @@ st.markdown("<p style='text-align: center; font-size: 1.2rem; margin-bottom: 3re
 
 st.markdown("---")
 
-# --- Simple Description ---
+# --- About Swecha Section ---
 st.markdown("""
-<div style='text-align: center; max-width: 800px; margin: 0 auto;'>
-    <p style='font-size: 1.1rem; line-height: 1.8;'>
-        Share your traditional crafts and discover the rich heritage of handmade artistry.
+<div style='text-align: center; max-width: 900px; margin: 0 auto; margin-bottom: 3rem;'>
+    <h2 style='margin-bottom: 1.5rem;'>About Swecha</h2>
+    <p style='font-size: 1.05rem; line-height: 1.9; margin-bottom: 2rem;'>
+        Swecha is a free and open source software organization dedicated to preserving and promoting 
+        our rich cultural heritage through technology. We believe in making traditional knowledge 
+        accessible to everyone while maintaining its authenticity and value.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# --- Our Tradition Section ---
+st.markdown("""
+<div style='text-align: center; max-width: 900px; margin: 0 auto; margin-bottom: 3rem;'>
+    <h2 style='margin-bottom: 1.5rem;'>Our Tradition</h2>
+    <p style='font-size: 1.05rem; line-height: 1.9; margin-bottom: 1rem;'>
+        Traditional crafts represent the wisdom and creativity of our ancestors. From handwoven textiles 
+        to pottery, from folk art to traditional architecture, each craft tells a story of our heritage.
+    </p>
+    <p style='font-size: 1.05rem; line-height: 1.9;'>
+        Craft Connect is our initiative to document, preserve, and celebrate these traditional crafts 
+        for future generations. Join us in keeping our traditions alive.
     </p>
 </div>
 """, unsafe_allow_html=True)
