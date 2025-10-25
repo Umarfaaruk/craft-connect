@@ -116,6 +116,7 @@ async def get_user_from_token(token: str) -> dict:
 async def get_all_crafts_from_corpus() -> list:
     """
     Fetches all public craft records from the Corpus API.
+    Returns an empty list if the endpoint is not accessible or requires authentication.
     """
     async with httpx.AsyncClient() as client:
         try:
@@ -124,7 +125,16 @@ async def get_all_crafts_from_corpus() -> list:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=e.response.status_code, detail="Could not fetch crafts from Corpus API.")
+            if e.response.status_code == 403:
+                # If forbidden, return empty list - gallery will show "empty" message
+                logger.warning("Corpus API returned 403 Forbidden. The /records endpoint may require authentication.")
+                return []
+            elif e.response.status_code == 404:
+                # If not found, return empty list
+                logger.warning("Corpus API endpoint not found. Returning empty list.")
+                return []
+            else:
+                raise HTTPException(status_code=e.response.status_code, detail=f"Could not fetch crafts from Corpus API: {e.response.text}")
         except httpx.RequestError as e:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
 

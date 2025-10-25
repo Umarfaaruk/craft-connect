@@ -62,6 +62,9 @@ except requests.exceptions.HTTPError as e:
     if e.response.status_code == 404:
         st.error("The gallery endpoint was not found. The backend may not be deployed or the URL is incorrect.")
         st.info(f"Attempted to connect to: {BACKEND_URL}/crafts")
+    elif e.response.status_code == 403:
+        st.error("Access forbidden. The gallery is not accessible.")
+        st.info("Note: The gallery will show crafts uploaded through this application once available.")
     else:
         st.error(f"HTTP error {e.response.status_code}: {str(e)}")
 except requests.exceptions.RequestException as e:

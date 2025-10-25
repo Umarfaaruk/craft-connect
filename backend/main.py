@@ -21,15 +21,10 @@ app = FastAPI(title="Craft Connect API (Final)")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # --- 4. CORS Middleware ---
-# This list defines which frontend URLs are allowed to make requests to your backend.
-origins = [
-    "https://your-streamlit-app-name.streamlit.app", # IMPORTANT: Replace with your actual Streamlit URL for deployment
-    "http://localhost:8501", # For local development
-]
-
+# Allow all origins for development and deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
