@@ -252,104 +252,59 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
     # Get content type with fallback for None values
     content_type = file.content_type or "application/octet-stream"
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            # Construct the complete data payload required by the Corpus API.
-            data = {
-                "title": file.filename,
-                "description": description,
-                "user_id": user_id,
-                "category_id": category_id,
-                "language": language,
-                "release_rights": release_rights,
-                "media_type": get_media_type_from_content(content_type),
-                "upload_uuid": str(uuid.uuid4()),
-                "filename": file.filename,
-                "total_chunks": 1,
-            }
-            
-            # Try alternative field names that might be expected
-            alternative_data = data.copy()
-            alternative_data["releaseRights"] = release_rights  # camelCase
-            alternative_data["release-rights"] = release_rights  # kebab-case
-            alternative_data["releaseRights"] = release_rights  # alternative camelCase
-            
-            # Debug: Print data being sent to Corpus API
-            logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
-            
-            # Read file content
-            file_content = await file.read()
-            files = {"file": (file.filename, file_content, content_type)}
-            headers = {"Authorization": f"Bearer {token}"}
-            
-            # Try different approaches for sending data
-            logger.info(f"DEBUG - Attempting upload with data: {data}")
-            logger.info(f"DEBUG - Upload URL: {UPLOAD_URL}")
-            logger.info(f"DEBUG - Headers: {headers}")
-            
-            # The issue is that ALL fields are missing, not just release_rights
-            # This means the multipart form data is not being sent correctly
-            # Let's try a simpler, more direct approach
-            
-            logger.info(f"DEBUG - Trying direct multipart form approach")
-            
-            # Create multipart form data with all fields
-            multipart_data = {}
-            
-            # Add all form fields as strings
-            for key, value in data.items():
-                multipart_data[key] = str(value)
-            
-            # Add the file
-            multipart_data["file"] = (file.filename, file_content, content_type)
-            
-            logger.info(f"DEBUG - Multipart data keys: {list(multipart_data.keys())}")
-            logger.info(f"DEBUG - Form fields: {[(k, v) for k, v in multipart_data.items() if k != 'file']}")
-            
-            try:
-                response = await client.post(UPLOAD_URL, files=multipart_data, headers=headers)
-                response.raise_for_status()
-                logger.info("DEBUG - Upload successful with direct multipart approach")
-                return response.json()
-            except httpx.HTTPStatusError as e:
-                logger.error(f"DEBUG - Direct multipart failed: {e.response.status_code} - {e.response.text}")
-                
-                # Fallback: Try with requests library (synchronous)
-                logger.info(f"DEBUG - Trying with requests library as fallback")
-                try:
-                    import requests
-                    
-                    # Prepare form data
-                    form_data = {}
-                    for key, value in data.items():
-                        form_data[key] = str(value)
-                    
-                    # Prepare files
-                    files_data = {
-                        'file': (file.filename, file_content, content_type)
-                    }
-                    
-                    # Convert headers to dict (remove any non-string values)
-                    requests_headers = {}
-                    for k, v in headers.items():
-                        if isinstance(v, (str, bytes)):
-                            requests_headers[k] = v
-                    
-                    logger.info(f"DEBUG - Using requests with form_data: {list(form_data.keys())}")
-                    logger.info(f"DEBUG - Using requests with files: {list(files_data.keys())}")
-                    
-                    response = requests.post(UPLOAD_URL, data=form_data, files=files_data, headers=requests_headers, timeout=60)
-                    response.raise_for_status()
-                    logger.info("DEBUG - Upload successful with requests library")
-                    return response.json()
-                    
-                except Exception as e2:
-                    logger.error(f"DEBUG - Requests library fallback failed: {str(e2)}")
-                    raise e  # Re-raise the original error
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Corpus API HTTP error: {e.response.status_code}")
-            logger.error(f"Corpus API error response: {e.response.text}")
-            logger.error(f"Request data sent: {data}")
-            raise HTTPException(status_code=e.response.status_code, detail=f"Corpus API upload failed: {e.response.text}")
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+    # Use requests library directly for better multipart form handling
+    import requests
+    
+    try:
+        # Construct the complete data payload required by the Corpus API.
+        data = {
+            "title": file.filename,
+            "description": description,
+            "user_id": user_id,
+            "category_id": category_id,
+            "language": language,
+            "release_rights": release_rights,
+            "media_type": get_media_type_from_content(content_type),
+            "upload_uuid": str(uuid.uuid4()),
+            "filename": file.filename,
+            "total_chunks": 1,
+        }
+        
+        # Debug: Print data being sent to Corpus API
+        logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Prepare form data (all fields as strings)
+        form_data = {}
+        for key, value in data.items():
+            form_data[key] = str(value)
+        
+        # Prepare files
+        files_data = {
+            'file': (file.filename, file_content, content_type)
+        }
+        
+        # Prepare headers
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        logger.info(f"DEBUG - Upload URL: {UPLOAD_URL}")
+        logger.info(f"DEBUG - Form data keys: {list(form_data.keys())}")
+        logger.info(f"DEBUG - Form data values: {form_data}")
+        logger.info(f"DEBUG - Files: {list(files_data.keys())}")
+        logger.info(f"DEBUG - Headers: {headers}")
+        
+        # Make the request using requests library
+        response = requests.post(UPLOAD_URL, data=form_data, files=files_data, headers=headers, timeout=60)
+        response.raise_for_status()
+        logger.info("DEBUG - Upload successful with requests library")
+        return response.json()
+        
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Corpus API HTTP error: {e.response.status_code}")
+        logger.error(f"Corpus API error response: {e.response.text}")
+        logger.error(f"Request data sent: {data}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Corpus API upload failed: {e.response.text}")
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")

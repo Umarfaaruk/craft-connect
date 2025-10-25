@@ -152,38 +152,18 @@ def show_uploader():
         format_func=lambda x: CATEGORIES[x]
     )
     
-    # Language options as per Corpus API requirements
+    # Language options - only English and Telugu
     LANGUAGE_OPTIONS = {
         "NA": "Not Applicable",
-        "hindi": "Hindi",
-        "bengali": "Bengali", 
-        "telugu": "Telugu",
-        "marathi": "Marathi",
-        "tamil": "Tamil",
-        "gujarati": "Gujarati",
-        "urdu": "Urdu",
-        "kannada": "Kannada",
-        "odia": "Odia",
-        "malayalam": "Malayalam",
-        "punjabi": "Punjabi",
-        "assamese": "Assamese",
-        "bodo": "Bodo",
-        "dogri": "Dogri",
-        "kashmiri": "Kashmiri",
-        "konkani": "Konkani",
-        "maithili": "Maithili",
-        "meitei": "Meitei",
-        "nepali": "Nepali",
-        "sanskrit": "Sanskrit",
-        "santali": "Santali",
-        "sindhi": "Sindhi"
+        "english": "English",
+        "telugu": "Telugu"
     }
     
     language = st.selectbox(
         "Language:",
         options=list(LANGUAGE_OPTIONS.keys()),
         format_func=lambda x: LANGUAGE_OPTIONS[x],
-        index=0  # Default to "NA"
+        index=1  # Default to "English"
     )
     
     # Hidden release_rights field with default value
