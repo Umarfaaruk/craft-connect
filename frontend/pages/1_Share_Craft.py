@@ -155,7 +155,6 @@ def show_uploader():
     # Language options as per Corpus API requirements
     LANGUAGE_OPTIONS = {
         "NA": "Not Applicable",
-        "english": "English",
         "hindi": "Hindi",
         "bengali": "Bengali", 
         "telugu": "Telugu",
@@ -184,8 +183,11 @@ def show_uploader():
         "Language:",
         options=list(LANGUAGE_OPTIONS.keys()),
         format_func=lambda x: LANGUAGE_OPTIONS[x],
-        index=1  # Default to "English"
+        index=0  # Default to "NA"
     )
+    
+    # Hidden release_rights field with default value
+    release_rights = "Yes"  # Default value
     
     st.markdown("---")
     
@@ -205,6 +207,7 @@ def show_uploader():
                             'description': description,
                             'category_id': category_id,
                             'language': language,
+                            'release_rights': release_rights,
                         }
                         files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                         
