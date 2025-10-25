@@ -268,6 +268,12 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
                 "total_chunks": 1,
             }
             
+            # Try alternative field names that might be expected
+            alternative_data = data.copy()
+            alternative_data["releaseRights"] = release_rights  # camelCase
+            alternative_data["release-rights"] = release_rights  # kebab-case
+            alternative_data["releaseRights"] = release_rights  # alternative camelCase
+            
             # Debug: Print data being sent to Corpus API
             logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
             
@@ -277,29 +283,62 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
             headers = {"Authorization": f"Bearer {token}"}
             
             # Try different approaches for sending data
-            # Approach 1: Send data as regular form data with files
             logger.info(f"DEBUG - Attempting upload with data: {data}")
-            logger.info(f"DEBUG - Files: {list(files.keys())}")
+            logger.info(f"DEBUG - Upload URL: {UPLOAD_URL}")
+            logger.info(f"DEBUG - Headers: {headers}")
             
-            # First try: regular form data
+            # Method 1: Try with original data
+            logger.info(f"DEBUG - Trying with original data: {data}")
             try:
-                response = await client.post(UPLOAD_URL, data=data, files=files, headers=headers)
+                multipart_data = {}
+                for key, value in data.items():
+                    multipart_data[key] = (None, str(value))
+                multipart_data["file"] = (file.filename, file_content, content_type)
+                
+                response = await client.post(UPLOAD_URL, files=multipart_data, headers=headers)
                 response.raise_for_status()
-                logger.info("DEBUG - Upload successful with regular form data")
+                logger.info("DEBUG - Upload successful with original data")
                 return response.json()
             except httpx.HTTPStatusError as e:
-                logger.warning(f"DEBUG - Regular form data failed: {e.response.status_code} - {e.response.text}")
+                logger.warning(f"DEBUG - Original data failed: {e.response.status_code} - {e.response.text}")
                 
-                # Second try: explicit multipart form data
-                form_data = {}
-                for key, value in data.items():
-                    form_data[key] = (None, str(value))
-                
-                logger.info(f"DEBUG - Trying multipart form data: {form_data}")
-                response = await client.post(UPLOAD_URL, data=form_data, files=files, headers=headers)
-                response.raise_for_status()
-                logger.info("DEBUG - Upload successful with multipart form data")
-                return response.json()
+                # Method 1b: Try with alternative field names
+                logger.info(f"DEBUG - Trying with alternative field names: {alternative_data}")
+                try:
+                    multipart_data_alt = {}
+                    for key, value in alternative_data.items():
+                        multipart_data_alt[key] = (None, str(value))
+                    multipart_data_alt["file"] = (file.filename, file_content, content_type)
+                    
+                    response = await client.post(UPLOAD_URL, files=multipart_data_alt, headers=headers)
+                    response.raise_for_status()
+                    logger.info("DEBUG - Upload successful with alternative field names")
+                    return response.json()
+                except httpx.HTTPStatusError as e2:
+                    logger.warning(f"DEBUG - Alternative field names failed: {e2.response.status_code} - {e2.response.text}")
+                    
+                    # Method 2: Try with separate data and files
+                    try:
+                        logger.info(f"DEBUG - Trying separate data and files method")
+                        response = await client.post(UPLOAD_URL, data=data, files=files, headers=headers)
+                        response.raise_for_status()
+                        logger.info("DEBUG - Upload successful with separate data/files method")
+                        return response.json()
+                    except httpx.HTTPStatusError as e3:
+                        logger.warning(f"DEBUG - Separate data/files method failed: {e3.response.status_code} - {e3.response.text}")
+                        
+                        # Method 3: Try with JSON data and file upload
+                        logger.info(f"DEBUG - Trying JSON data method")
+                        json_headers = headers.copy()
+                        json_headers["Content-Type"] = "application/json"
+                        
+                        # Remove file from data for JSON
+                        json_data = data.copy()
+                        
+                        response = await client.post(UPLOAD_URL, json=json_data, files=files, headers=json_headers)
+                        response.raise_for_status()
+                        logger.info("DEBUG - Upload successful with JSON method")
+                        return response.json()
         except httpx.HTTPStatusError as e:
             logger.error(f"Corpus API HTTP error: {e.response.status_code}")
             logger.error(f"Corpus API error response: {e.response.text}")
