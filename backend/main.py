@@ -65,7 +65,6 @@ async def upload_craft(
     description: Annotated[str, Form()],
     category_id: Annotated[str, Form()],
     language: Annotated[str, Form()],
-    release_rights: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
 ):
     """
@@ -77,5 +76,4 @@ async def upload_craft(
         file=file,
         category_id=category_id,
         language=language,
-        release_rights=release_rights,
     )

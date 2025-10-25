@@ -13,12 +13,11 @@ st.set_page_config(
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# --- Display Header ---
 display_header()
 
 # --- Main Content ---
 st.markdown("<h1 style='text-align: center; margin-top: 2rem;'>Craft Connect</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 1.2rem; margin-bottom: 3rem;'>Preserving Traditional Crafts</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 1.2rem; margin-bottom: 3rem;'>Preserving Traditional Crafts & Cultural Heritage</p>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -26,10 +25,15 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; max-width: 900px; margin: 0 auto; margin-bottom: 3rem;'>
     <h2 style='margin-bottom: 1.5rem;'>About Swecha</h2>
-    <p style='font-size: 1.05rem; line-height: 1.9; margin-bottom: 2rem;'>
+    <p style='font-size: 1.05rem; line-height: 1.9; margin-bottom: 1.5rem;'>
         Swecha is a free and open source software organization dedicated to preserving and promoting 
         our rich cultural heritage through technology. We believe in making traditional knowledge 
         accessible to everyone while maintaining its authenticity and value.
+    </p>
+    <p style='font-size: 1.05rem; line-height: 1.9;'>
+        Our mission is to bridge the gap between traditional knowledge and modern technology, 
+        ensuring that the wisdom of our ancestors is preserved and passed down to future generations 
+        in accessible digital formats.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -40,20 +44,62 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; max-width: 900px; margin: 0 auto; margin-bottom: 3rem;'>
     <h2 style='margin-bottom: 1.5rem;'>Our Tradition</h2>
-    <p style='font-size: 1.05rem; line-height: 1.9; margin-bottom: 1rem;'>
+    <p style='font-size: 1.05rem; line-height: 1.9; margin-bottom: 1.5rem;'>
         Traditional crafts represent the wisdom and creativity of our ancestors. From handwoven textiles 
         to pottery, from folk art to traditional architecture, each craft tells a story of our heritage.
     </p>
     <p style='font-size: 1.05rem; line-height: 1.9;'>
         Craft Connect is our initiative to document, preserve, and celebrate these traditional crafts 
-        for future generations. Join us in keeping our traditions alive.
+        for future generations. We focus on various aspects of our cultural heritage including:
     </p>
+</div>
+""", unsafe_allow_html=True)
+
+# --- Cultural Categories ---
+st.markdown("""
+<div style='max-width: 900px; margin: 0 auto; margin-bottom: 3rem;'>
+    <div style='display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; text-align: center;'>
+        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
+            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>📚</p>
+            <strong>Fables & Folk Tales</strong>
+        </div>
+        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
+            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🎶</p>
+            <strong>Folk Songs & Music</strong>
+        </div>
+        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
+            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🛠️</p>
+            <strong>Traditional Skills</strong>
+        </div>
+        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
+            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🏛️</p>
+            <strong>Cultural History</strong>
+        </div>
+        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
+            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>🌾</p>
+            <strong>Food & Agriculture</strong>
+        </div>
+        <div style='padding: 1rem; background-color: #f8f9fa; border-radius: 8px;'>
+            <p style='font-size: 2rem; margin-bottom: 0.5rem;'>📰</p>
+            <strong>Historical Archives</strong>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # --- Call to Action ---
+st.markdown("""
+<div style='text-align: center; max-width: 900px; margin: 0 auto; margin-bottom: 2rem;'>
+    <h3>Join Us in Preserving Our Heritage</h3>
+    <p style='font-size: 1.05rem; line-height: 1.9;'>
+        Contribute by sharing your traditional crafts, stories, music, and knowledge. 
+        Every contribution helps preserve our cultural heritage for future generations.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)

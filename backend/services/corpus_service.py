@@ -138,7 +138,7 @@ def get_media_type_from_content(content_type: str) -> str:
     if "image" in content_type or "pdf" in content_type: return "image"
     return "text"
 
-async def upload_craft_to_corpus(token: str, description: str, file: UploadFile, category_id: str, language: str, release_rights: str) -> dict:
+async def upload_craft_to_corpus(token: str, description: str, file: UploadFile, category_id: str, language: str) -> dict:
     """
     Uploads a new craft to the Corpus API with all required fields.
     """
@@ -158,9 +158,6 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
     if not language:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Language is required")
     
-    if not release_rights:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Release rights is required")
-    
     # Get the user's ID from their token to associate with the upload.
     user_data = await get_user_from_token(token)
     user_id = user_data.get("id")
@@ -179,7 +176,6 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
                 "user_id": user_id,
                 "category_id": category_id,
                 "language": language,
-                "release_rights": release_rights,
                 "media_type": get_media_type_from_content(content_type),
                 "upload_uuid": str(uuid.uuid4()),
                 "filename": file.filename,

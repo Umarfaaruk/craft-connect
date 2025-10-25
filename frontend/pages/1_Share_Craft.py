@@ -10,24 +10,45 @@ BACKEND_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
 
 display_header()
 
+# --- Category Mapping ---
+CATEGORIES = {
+    "category_1": "📚 Fables - Traditional stories with moral lessons and mythical characters",
+    "category_2": "🎉 Events - Happenings, celebrations, and special occasions",
+    "category_3": "🎵 Music - Musical content, songs, instruments, and audio experiences",
+    "category_4": "🏛️ Places - Locations, landmarks, and geographical content",
+    "category_5": "🍽️ Food - Culinary content, recipes, and food-related information",
+    "category_6": "👥 People - Individuals, personalities, and human-related content",
+    "category_7": "📖 Literature - Books, poems, writings, and literary works",
+    "category_8": "🏗️ Architecture - Buildings, structures, and architectural designs",
+    "category_9": "⚡ Skills - Abilities, talents, and learning resources",
+    "category_10": "🖼️ Images - Visual content, pictures, and graphic materials",
+    "category_11": "🎭 Culture - Cultural traditions, customs, and heritage",
+    "category_12": "🌿 Flora & Fauna - Plants, animals, and natural life forms",
+    "category_13": "🎓 Education - Learning materials, courses, and educational content",
+    "category_14": "🌱 Vegetation - Plant life, gardening, and botanical content",
+    "category_15": "📓 Folk Tales - Stories passed orally across generations",
+    "category_16": "🎶 Folk Songs - Traditional music reflecting cultural heritage",
+    "category_17": "🛠️ Traditional Skills - Artisanal and craft practices (e.g., weaving, pottery)",
+    "category_18": "🏛️ Local Cultural History - Cultural events, rituals, and customs",
+    "category_19": "📜 Local History - Historical events and figures significant to region",
+    "category_20": "🌾 Food & Agriculture - Traditional recipes, cooking methods, tools, and practices",
+    "category_21": "📰 Newspapers Older Than 1980s - Historical newspaper archives",
+}
+
 # --- Authentication Form ---
 def show_auth_form():
-    """Displays the login form in a square box."""
+    """Displays the login form in a smaller square box."""
     # Center the form using empty columns
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+    col1, col2, col3 = st.columns([2, 1.5, 2])
     
     with col2:
-        # Create a styled container for the login form
-        st.markdown("""
-        <div style='background-color: #f8f9fa; padding: 2.5rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 450px; margin: 2rem auto;'>
-            <h2 style='text-align: center; margin-bottom: 2rem; color: #333;'>Sign In</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        # Simple title without box
+        st.markdown("<h2 style='text-align: center; margin-bottom: 2rem;'>Sign In</h2>", unsafe_allow_html=True)
         
         # Form container
         with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Phone Number", placeholder="Enter your phone number")
-            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            username = st.text_input("Phone Number", placeholder="Enter phone number")
+            password = st.text_input("Password", type="password", placeholder="Enter password")
             
             submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
             
@@ -67,23 +88,18 @@ def show_uploader():
     
     category_id = st.selectbox(
         "Category:",
-        options=["category_1", "category_2", "category_3"],
-        format_func=lambda x: x.replace("_", " ").title()
+        options=list(CATEGORIES.keys()),
+        format_func=lambda x: CATEGORIES[x]
     )
     
     language = st.text_input("Language", "English")
-    
-    release_rights = st.selectbox(
-        "Release Rights:",
-        options=["Attribution-ShareAlike (CC BY-SA)", "Public Domain (CC0)"]
-    )
     
     st.markdown("---")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("Publish to Gallery", type="primary", use_container_width=True):
-            if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
+            if not all([uploaded_file, description.strip(), category_id, language]):
                 st.warning("Please fill out all fields.")
             elif 'access_token' not in st.session_state:
                 st.error("Please log in again.")
@@ -96,7 +112,6 @@ def show_uploader():
                             'description': description,
                             'category_id': category_id,
                             'language': language,
-                            'release_rights': release_rights,
                         }
                         files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                         

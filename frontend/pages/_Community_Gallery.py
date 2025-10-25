@@ -14,9 +14,10 @@ st.markdown("---")
 
 # --- Gallery Display ---
 try:
-    response = requests.get(f"{BACKEND_URL}/crafts")
-    response.raise_for_status()
-    gallery_items = response.json()
+    with st.spinner("Loading gallery..."):
+        response = requests.get(f"{BACKEND_URL}/crafts", timeout=10)
+        response.raise_for_status()
+        gallery_items = response.json()
 
     if not gallery_items:
         st.info("The gallery is empty. Be the first to share your craft!")
@@ -46,5 +47,12 @@ try:
                 st.write(description)
                 st.caption(f"By: {author_name}")
 
-except requests.exceptions.RequestException:
-    st.error("Could not connect to the backend server.")
+except requests.exceptions.Timeout:
+    st.error("Connection timeout. The server is taking too long to respond. Please try again later.")
+except requests.exceptions.ConnectionError:
+    st.error("Could not connect to the server. Please check your internet connection or try again later.")
+    st.info("If the problem persists, the backend server may be temporarily unavailable.")
+except requests.exceptions.RequestException as e:
+    st.error(f"An error occurred while loading the gallery: {str(e)}")
+except Exception as e:
+    st.error(f"Unexpected error: {str(e)}")
