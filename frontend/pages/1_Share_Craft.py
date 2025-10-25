@@ -211,8 +211,8 @@ def show_uploader():
                         }
                         files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                         
-                        # Debug: Print payload to see what's being sent
-                        st.write("Debug - Payload being sent:", payload)
+                        # Debug: Print payload to see what's being sent (remove this line after testing)
+                        # st.write("Debug - Payload being sent:", payload)
                         
                         response = requests.post(
                             f"{BACKEND_URL}/crafts",

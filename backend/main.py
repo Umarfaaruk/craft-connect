@@ -73,13 +73,13 @@ async def upload_craft(
     """
     Uploads a new craft by sending all details to the Corpus API.
     """
-    # Debug: Print received parameters
-    print(f"DEBUG - Received parameters:")
-    print(f"  description: {description}")
-    print(f"  category_id: {category_id}")
-    print(f"  language: {language}")
-    print(f"  release_rights: {release_rights}")
-    print(f"  file: {file.filename}")
+    # Debug: Print received parameters (remove after testing)
+    # print(f"DEBUG - Received parameters:")
+    # print(f"  description: {description}")
+    # print(f"  category_id: {category_id}")
+    # print(f"  language: {language}")
+    # print(f"  release_rights: {release_rights}")
+    # print(f"  file: {file.filename}")
     
     return await corpus_service.upload_craft_to_corpus(
         token=token,

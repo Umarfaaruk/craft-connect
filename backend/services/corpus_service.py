@@ -270,13 +270,40 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
             
             # Debug: Print data being sent to Corpus API
             logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
-            files = {"file": (file.filename, await file.read(), content_type)}
+            
+            # Read file content
+            file_content = await file.read()
+            files = {"file": (file.filename, file_content, content_type)}
             headers = {"Authorization": f"Bearer {token}"}
             
-            response = await client.post(UPLOAD_URL, data=data, files=files, headers=headers)
-            response.raise_for_status()
-            return response.json()
+            # Try different approaches for sending data
+            # Approach 1: Send data as regular form data with files
+            logger.info(f"DEBUG - Attempting upload with data: {data}")
+            logger.info(f"DEBUG - Files: {list(files.keys())}")
+            
+            # First try: regular form data
+            try:
+                response = await client.post(UPLOAD_URL, data=data, files=files, headers=headers)
+                response.raise_for_status()
+                logger.info("DEBUG - Upload successful with regular form data")
+                return response.json()
+            except httpx.HTTPStatusError as e:
+                logger.warning(f"DEBUG - Regular form data failed: {e.response.status_code} - {e.response.text}")
+                
+                # Second try: explicit multipart form data
+                form_data = {}
+                for key, value in data.items():
+                    form_data[key] = (None, str(value))
+                
+                logger.info(f"DEBUG - Trying multipart form data: {form_data}")
+                response = await client.post(UPLOAD_URL, data=form_data, files=files, headers=headers)
+                response.raise_for_status()
+                logger.info("DEBUG - Upload successful with multipart form data")
+                return response.json()
         except httpx.HTTPStatusError as e:
+            logger.error(f"Corpus API HTTP error: {e.response.status_code}")
+            logger.error(f"Corpus API error response: {e.response.text}")
+            logger.error(f"Request data sent: {data}")
             raise HTTPException(status_code=e.response.status_code, detail=f"Corpus API upload failed: {e.response.text}")
         except httpx.RequestError as e:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
