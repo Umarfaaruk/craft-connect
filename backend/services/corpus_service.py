@@ -2,8 +2,13 @@
 import os
 import httpx
 import uuid
+import logging
 from dotenv import load_dotenv
 from fastapi import HTTPException, UploadFile, status
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 SWECHA_API_BASE_URL = os.getenv("SWECHA_API_BASE_URL", "https://api.corpus.swecha.org")
@@ -18,24 +23,65 @@ async def login_for_token(username: str, password: str) -> dict:
     Logs in to the external Corpus API by sending credentials.
     Returns the access token if successful.
     """
-    # Validate inputs
-    if not username or not password:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username and password are required")
+    # Validate inputs - trim whitespace and check for empty values
+    if not username or not username.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username (phone) is required")
+    
+    if not password or not password.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required")
+    
+    # Trim the inputs
+    username = username.strip()
+    password = password.strip()
     
     async with httpx.AsyncClient() as client:
         try:
             payload = {"phone": username, "password": password}
             headers = {"Content-Type": "application/json"}
             
-            response = await client.post(TOKEN_URL, json=payload, headers=headers)
+            logger.info(f"Attempting login to: {TOKEN_URL}")
+            logger.info(f"Payload: phone={username}")
+            
+            response = await client.post(TOKEN_URL, json=payload, headers=headers, timeout=30.0)
+            
+            logger.info(f"Response status: {response.status_code}")
+            
             response.raise_for_status()
-            return response.json()
+            
+            # Extract the response data
+            response_data = response.json()
+            
+            logger.info(f"Response data keys: {list(response_data.keys())}")
+            
+            # Handle different possible response formats
+            if "access_token" in response_data:
+                # If the API returns access_token, return it with token_type
+                return {
+                    "access_token": response_data["access_token"],
+                    "token_type": "bearer"
+                }
+            elif "token" in response_data:
+                # If the API returns just token, format it properly
+                return {
+                    "access_token": response_data["token"],
+                    "token_type": "bearer"
+                }
+            else:
+                # Return the raw response if it doesn't match expected formats
+                return response_data
+                
         except httpx.HTTPStatusError as e:
-            error_detail = "Incorrect username or password"
+            logger.error(f"HTTP error: {e.response.status_code}")
+            logger.error(f"Error response: {e.response.text}")
+            error_detail = "Login failed. Please check your credentials."
             try:
                 error_body = e.response.json()
                 if "detail" in error_body:
                     error_detail = error_body["detail"]
+                elif "message" in error_body:
+                    error_detail = error_body["message"]
+                elif isinstance(error_body, str):
+                    error_detail = error_body
             except:
                 pass
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail)
