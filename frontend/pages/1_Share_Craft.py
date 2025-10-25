@@ -42,41 +42,96 @@ CATEGORIES = {
 
 # --- Authentication Form ---
 def show_auth_form():
-    """Displays the login form in a smaller square box."""
+    """Displays the login/signup form in a smaller square box."""
     # Center the form using empty columns
     col1, col2, col3 = st.columns([2, 1.5, 2])
     
     with col2:
-        # Simple title without box
-        st.markdown("<h2 style='text-align: center; margin-bottom: 2rem;'>Sign In</h2>", unsafe_allow_html=True)
+        # Tab selection
+        tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
         
-        # Form container
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Phone Number", placeholder="Enter phone number")
-            password = st.text_input("Password", type="password", placeholder="Enter password")
+        with tab1:
+            # Simple title without box
+            st.markdown("<h3 style='text-align: center; margin-bottom: 1rem;'>Sign In</h3>", unsafe_allow_html=True)
             
-            submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+            # Login form container
+            with st.form("login_form", clear_on_submit=False):
+                username = st.text_input("Phone Number", placeholder="Enter phone number")
+                password = st.text_input("Password", type="password", placeholder="Enter password")
+                
+                submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+                
+                if submit:
+                    if not username or not password:
+                        st.error("Please enter both phone number and password.")
+                    else:
+                        try:
+                            response = requests.post(
+                                f"{BACKEND_URL}/token",
+                                data={"username": username, "password": password}
+                            )
+                            if response.status_code == 200:
+                                token_data = response.json()
+                                st.session_state['access_token'] = token_data.get('access_token')
+                                st.session_state['authenticated'] = True
+                                st.success("Login Successful!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("Login failed. Please check your credentials.")
+                        except requests.exceptions.ConnectionError:
+                            st.error("Connection failed. Is the backend server running?")
+                        except Exception as e:
+                            st.error(f"An error occurred: {str(e)}")
+        
+        with tab2:
+            # Simple title without box
+            st.markdown("<h3 style='text-align: center; margin-bottom: 1rem;'>Sign Up</h3>", unsafe_allow_html=True)
             
-            if submit:
-                if not username or not password:
-                    st.error("Please enter both phone number and password.")
-                else:
-                    try:
-                        response = requests.post(
-                            f"{BACKEND_URL}/token",
-                            data={"username": username, "password": password}
-                        )
-                        if response.status_code == 200:
-                            token_data = response.json()
-                            st.session_state['access_token'] = token_data.get('access_token')
-                            st.session_state['authenticated'] = True
-                            st.success("Login Successful!")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error("Login failed. Please check your credentials.")
-                    except requests.exceptions.ConnectionError:
-                        st.error("Connection failed. Is the backend server running?")
+            # Registration form container
+            with st.form("register_form", clear_on_submit=False):
+                reg_username = st.text_input("Phone Number", placeholder="Enter phone number", key="reg_username")
+                reg_password = st.text_input("Password", type="password", placeholder="Enter password", key="reg_password")
+                reg_email = st.text_input("Email (Optional)", placeholder="Enter email address", key="reg_email")
+                
+                submit_reg = st.form_submit_button("Sign Up", type="primary", use_container_width=True)
+                
+                if submit_reg:
+                    if not reg_username or not reg_password:
+                        st.error("Please enter both phone number and password.")
+                    else:
+                        try:
+                            reg_data = {
+                                "username": reg_username,
+                                "password": reg_password
+                            }
+                            if reg_email.strip():
+                                reg_data["email"] = reg_email
+                            
+                            response = requests.post(
+                                f"{BACKEND_URL}/auth/register",
+                                data=reg_data
+                            )
+                            if response.status_code == 200:
+                                token_data = response.json()
+                                st.session_state['access_token'] = token_data.get('access_token')
+                                st.session_state['authenticated'] = True
+                                st.success("Registration Successful! You are now logged in.")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                error_detail = "Registration failed. Please try again."
+                                try:
+                                    error_data = response.json()
+                                    if "detail" in error_data:
+                                        error_detail = error_data["detail"]
+                                except:
+                                    pass
+                                st.error(error_detail)
+                        except requests.exceptions.ConnectionError:
+                            st.error("Connection failed. Is the backend server running?")
+                        except Exception as e:
+                            st.error(f"An error occurred: {str(e)}")
 
 # --- Uploader Page ---
 def show_uploader():
@@ -100,6 +155,7 @@ def show_uploader():
     # Language options as per Corpus API requirements
     LANGUAGE_OPTIONS = {
         "NA": "Not Applicable",
+        "english": "English",
         "hindi": "Hindi",
         "bengali": "Bengali", 
         "telugu": "Telugu",
@@ -128,13 +184,7 @@ def show_uploader():
         "Language:",
         options=list(LANGUAGE_OPTIONS.keys()),
         format_func=lambda x: LANGUAGE_OPTIONS[x],
-        index=0  # Default to "NA"
-    )
-    
-    release_rights = st.selectbox(
-        "Release Rights:",
-        options=["Yes", "No"],
-        index=0  # Default to "Yes"
+        index=1  # Default to "English"
     )
     
     st.markdown("---")
@@ -142,7 +192,7 @@ def show_uploader():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("Publish to Gallery", type="primary", use_container_width=True):
-            if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
+            if not all([uploaded_file, description.strip(), category_id, language]):
                 st.warning("Please fill out all fields.")
             elif 'access_token' not in st.session_state:
                 st.error("Please log in again.")
@@ -155,7 +205,6 @@ def show_uploader():
                             'description': description,
                             'category_id': category_id,
                             'language': language,
-                            'release_rights': release_rights,
                         }
                         files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                         

@@ -45,6 +45,13 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """
     return await corpus_service.login_for_token(form_data.username, form_data.password)
 
+@app.post("/auth/register", response_model=Token, tags=["Authentication"])
+async def register(username: str = Form(), password: str = Form(), email: str = Form(None)):
+    """
+    Registers a new user with the Corpus API.
+    """
+    return await corpus_service.register_user(username, password, email)
+
 
 @app.get("/crafts", tags=["Crafts"])
 async def get_all_crafts():
@@ -60,7 +67,6 @@ async def upload_craft(
     description: Annotated[str, Form()],
     category_id: Annotated[str, Form()],
     language: Annotated[str, Form()],
-    release_rights: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
 ):
     """
@@ -72,5 +78,4 @@ async def upload_craft(
         file=file,
         category_id=category_id,
         language=language,
-        release_rights=release_rights,
     )
