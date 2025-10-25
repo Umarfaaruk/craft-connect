@@ -1,64 +1,50 @@
-# frontend/pages/2_Community_Gallery.py
+# frontend/pages/_Community_Gallery.py
 import streamlit as st
 import requests
-import datetime
 from utils import display_header
 
-# --- 1. Configuration ---
+# --- Configuration ---
 st.set_page_config(layout="wide", page_title="Community Gallery")
-BACKEND_URL ="https://craft-connect-backend-0qs7.onrender.com"  # URL of your running FastAPI backend
+BACKEND_URL = "https://craft-connect-backend-0qs7.onrender.com"
 
-# --- 2. Header and Title ---
 display_header()
-st.title("🖼️ The Community Gallery")
-st.write("A live showcase of creations from our talented community.")
-st.divider()
 
-# --- 3. Gallery Display Logic ---
+st.markdown("<h1 style='text-align: center;'>Community Gallery</h1>", unsafe_allow_html=True)
+st.markdown("---")
+
+# --- Gallery Display ---
 try:
-    # Make a live API call to your backend to fetch all crafts.
-    # Your backend then calls the Corpus API.
     response = requests.get(f"{BACKEND_URL}/crafts")
-    response.raise_for_status()  # Raise an exception for HTTP error codes
+    response.raise_for_status()
     gallery_items = response.json()
 
     if not gallery_items:
-        st.info("The gallery is currently empty. Be the first to share your craft!")
+        st.info("The gallery is empty. Be the first to share your craft!")
     else:
-        # Display items in a grid, newest first.
-        # Note: The Corpus API might not return items in a specific order.
+        # Display items in a grid
         num_columns = 3
         
         for i, item in enumerate(gallery_items):
-            # Create a new row of columns for every 3 items.
             if i % num_columns == 0:
                 cols = st.columns(num_columns)
             
             with cols[i % num_columns]:
-                with st.container(border=True):
-                    # --- Data Mapping ---
-                    # You may need to adjust these '.get()' keys to match the exact
-                    # field names returned by the Swecha Corpus API for a "record".
-                    title = item.get("title", "Untitled Craft")
-                    description = item.get("description", "No description provided.")
-                    author_info = item.get("user", {}) # Corpus API often nests user info
-                    author_name = author_info.get("name", "Unknown Artist")
-                    media_url = item.get("file_url") # Find the correct key for the public URL
+                title = item.get("title", "Untitled Craft")
+                description = item.get("description", "No description provided.")
+                author_info = item.get("user", {})
+                author_name = author_info.get("name", "Unknown Artist")
+                media_url = item.get("file_url")
 
-                    st.subheader(title)
-
-                    # Display the media if a URL is found
-                    if media_url:
-                        # Simple check for video based on file extension
-                        if any(ext in media_url for ext in ['.mp4', '.mov', '.avi']):
-                            st.video(media_url)
-                        else:
-                            st.image(media_url)
-                    
-                    st.write(description)
-                    st.caption(f"By: {author_name}")
-                    st.divider()
-
+                st.markdown(f"**{title}**")
+                
+                if media_url:
+                    if any(ext in media_url for ext in ['.mp4', '.mov', '.avi']):
+                        st.video(media_url)
+                    else:
+                        st.image(media_url)
+                
+                st.write(description)
+                st.caption(f"By: {author_name}")
 
 except requests.exceptions.RequestException:
-    st.error("Could not connect to the backend server. Please ensure it's running.")
+    st.error("Could not connect to the backend server.")

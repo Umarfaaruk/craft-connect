@@ -6,26 +6,26 @@ from utils import display_header
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="Share Your Craft")
-# This line now securely gets the URL from your Streamlit Secrets.
-# When you run locally, it will default to your local backend.
 BACKEND_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
 
-# --- Header ---
 display_header()
 
-# --- AUTHENTICATION FORM ---
+# --- Authentication Form ---
 def show_auth_form():
-    """Displays the login form for authenticating with the Corpus API."""
-    st.warning("Please sign in with your Corpus account to share your craft.")
-    st.info("Don't have an account? You must register on the main Swecha Corpus platform first.")
-
+    """Displays the login form."""
+    st.markdown("<h1 style='text-align: center;'>Sign In</h1>", unsafe_allow_html=True)
+    st.markdown("---")
+    
     with st.form("login_form"):
         username = st.text_input("Phone Number")
         password = st.text_input("Password", type="password")
         
-        if st.form_submit_button("Sign In", type="primary"):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+        
+        if submit:
             try:
-                # API call to your backend's /token endpoint
                 response = requests.post(
                     f"{BACKEND_URL}/token",
                     data={"username": username, "password": password}
@@ -42,73 +42,71 @@ def show_auth_form():
             except requests.exceptions.ConnectionError:
                 st.error("Connection failed. Is the backend server running?")
 
-# --- UPLOADER PAGE ---
+# --- Uploader Page ---
 def show_uploader():
-    """Displays the main page for uploading a new craft after authentication."""
-    st.title("🎨 Share Your Craft")
-    st.write("Upload an image or video and provide its details to add it to the gallery.")
-
+    """Displays the upload form."""
+    st.markdown("<h1 style='text-align: center;'>Share Your Craft</h1>", unsafe_allow_html=True)
+    st.markdown("---")
+    
     uploaded_file = st.file_uploader(
-        "Upload your media file",
+        "Upload your file",
         type=["png", "jpg", "jpeg", "mp4", "mov", "avi"]
     )
-    description = st.text_area("Describe your creation:", height=150)
     
-    # Placeholder categories
-    categories = {
-        "category_1": "Painting",
-        "category_2": "Sculpture",
-        "category_3": "Textile Art"
-    }
+    description = st.text_area("Description", height=100)
+    
     category_id = st.selectbox(
-        "Select a Category:",
-        options=list(categories.keys()),
-        format_func=lambda x: categories[x]
+        "Category:",
+        options=["category_1", "category_2", "category_3"],
+        format_func=lambda x: x.replace("_", " ").title()
     )
     
-    language = st.text_input("Language of the Craft/Description", "English")
+    language = st.text_input("Language", "English")
     
     release_rights = st.selectbox(
         "Release Rights:",
-        options=["Attribution-ShareAlike (CC BY-SA)", "Public Domain (CC0)"],
-        help="Choose the license under which you are releasing this craft."
+        options=["Attribution-ShareAlike (CC BY-SA)", "Public Domain (CC0)"]
     )
     
-    if st.button("🌍 Publish to Gallery", type="primary"):
-        if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
-            st.warning("Please fill out all fields and upload a file.")
-        elif 'access_token' not in st.session_state:
-            st.error("Authentication token not found. Please log in again.")
-        else:
-            with st.spinner("Publishing your craft..."):
-                try:
-                    auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
-                    
-                    payload = {
-                        'description': description,
-                        'category_id': category_id,
-                        'language': language,
-                        'release_rights': release_rights,
-                    }
-                    files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                    
-                    response = requests.post(
-                        f"{BACKEND_URL}/crafts",
-                        data=payload,
-                        files=files,
-                        headers=auth_header
-                    )
+    st.markdown("---")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Publish to Gallery", type="primary", use_container_width=True):
+            if not all([uploaded_file, description.strip(), category_id, language, release_rights]):
+                st.warning("Please fill out all fields.")
+            elif 'access_token' not in st.session_state:
+                st.error("Please log in again.")
+            else:
+                with st.spinner("Publishing..."):
+                    try:
+                        auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
+                        
+                        payload = {
+                            'description': description,
+                            'category_id': category_id,
+                            'language': language,
+                            'release_rights': release_rights,
+                        }
+                        files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                        
+                        response = requests.post(
+                            f"{BACKEND_URL}/crafts",
+                            data=payload,
+                            files=files,
+                            headers=auth_header
+                        )
 
-                    if response.status_code == 200:
-                        st.balloons()
-                        st.success("Published! You will be redirected to the gallery.")
-                        time.sleep(2)
-                        st.switch_page("pages/2_Community_Gallery.py")
-                    else:
-                        st.error(f"Upload failed: {response.json().get('detail', 'An unknown error occurred.')}")
+                        if response.status_code == 200:
+                            st.success("Published successfully!")
+                            time.sleep(1)
+                            st.switch_page("pages/_Community_Gallery.py")
+                        else:
+                            error_msg = response.json().get('detail', 'An unknown error occurred.')
+                            st.error(f"Upload failed: {error_msg}")
 
-                except requests.exceptions.ConnectionError as e:
-                    st.error(f"Connection failed. Is the backend server running? Details: {e}")
+                    except requests.exceptions.ConnectionError as e:
+                        st.error(f"Connection failed: {e}")
 
 # --- Page Router ---
 if not st.session_state.get("authenticated", False):
