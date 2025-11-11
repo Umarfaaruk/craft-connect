@@ -21,12 +21,16 @@ st.markdown("---")
 # --- Gallery Display ---
 try:
     with st.spinner("Loading gallery..."):
-        response = requests.get(f"{BACKEND_URL}/crafts", timeout=10)
+        response = requests.get(f"{BACKEND_URL}/crafts", timeout=30)
         response.raise_for_status()
         gallery_items = response.json()
+        
+        # Handle case where gallery_items might be None or not a list
+        if gallery_items is None:
+            gallery_items = []
 
     if not gallery_items:
-        st.info("The gallery is empty. Be the first to share your craft!")
+        st.info("🌱 The gallery is empty. Be the first to share your craft! Click 'Share Your Craft' to get started.")
     else:
         # Display items in a grid
         num_columns = 3
@@ -36,22 +40,28 @@ try:
                 cols = st.columns(num_columns)
             
             with cols[i % num_columns]:
-                title = item.get("title", "Untitled Craft")
-                description = item.get("description", "No description provided.")
-                author_info = item.get("user", {})
-                author_name = author_info.get("name", "Unknown Artist")
-                media_url = item.get("file_url")
+                try:
+                    title = item.get("title", "Untitled Craft")
+                    description = item.get("description", "No description provided.")
+                    author_info = item.get("user", {}) if isinstance(item.get("user"), dict) else {}
+                    author_name = author_info.get("name", "Unknown Artist") if author_info else "Unknown Artist"
+                    media_url = item.get("file_url")
 
-                st.markdown(f"**{title}**")
-                
-                if media_url:
-                    if any(ext in media_url for ext in ['.mp4', '.mov', '.avi']):
-                        st.video(media_url)
-                    else:
-                        st.image(media_url)
-                
-                st.write(description)
-                st.caption(f"By: {author_name}")
+                    st.markdown(f"**{title}**")
+                    
+                    if media_url:
+                        try:
+                            if any(ext in media_url.lower() for ext in ['.mp4', '.mov', '.avi']):
+                                st.video(media_url)
+                            else:
+                                st.image(media_url)
+                        except Exception as media_error:
+                            st.warning(f"Could not load media: {media_url}")
+                    
+                    st.write(description)
+                    st.caption(f"By: {author_name}")
+                except Exception as item_error:
+                    st.error(f"Error displaying gallery item: {str(item_error)}")
 
 except requests.exceptions.Timeout:
     st.error("Connection timeout. The server is taking too long to respond. Please try again later.")

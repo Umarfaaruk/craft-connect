@@ -3,3 +3,5 @@ uvicorn
 python-dotenv
 httpx
 python-multipart
+requests
+requests-toolbelt

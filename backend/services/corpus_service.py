@@ -243,6 +243,31 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
     if not release_rights:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Release rights is required")
     
+    # Check file size (1GB = 1073741824 bytes)
+    MAX_FILE_SIZE = 1073741824
+    file_content = None
+    
+    try:
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size ({file_size / (1024*1024):.2f} MB) exceeds the maximum allowed size of 1GB"
+            )
+        
+        # Store file content - it's already read, no need to read again
+        # We'll use this file_content later for the upload
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Could not read file: {str(e)}")
+    
+    # Ensure file_content was successfully read
+    if file_content is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not read file content")
+    
     # Get the user's ID from their token to associate with the upload.
     user_data = await get_user_from_token(token)
     user_id = user_data.get("id")
@@ -273,8 +298,8 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
         # Debug: Print data being sent to Corpus API
         logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
         
-        # Read file content
-        file_content = await file.read()
+        # Use file_content that was already read during size check
+        # We already have file_content from the size validation above
         
         # Prepare form data (all fields as strings)
         form_data = {}

@@ -11,6 +11,11 @@ from utils import display_header
 
 # --- Configuration ---
 st.set_page_config(layout="wide", page_title="Share Your Craft")
+
+# Increase max upload size for Streamlit (1GB = 1024MB)
+MAX_UPLOAD_SIZE = 1024
+st.set_option("server.maxUploadSize", MAX_UPLOAD_SIZE)
+
 BACKEND_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
 
 display_header()
@@ -141,7 +146,8 @@ def show_uploader():
     
     uploaded_file = st.file_uploader(
         "Upload your file",
-        type=["png", "jpg", "jpeg", "mp4", "mov", "avi"]
+        type=["png", "jpg", "jpeg", "mp4", "mov", "avi"],
+        help="Maximum file size: 1GB"
     )
     
     description = st.text_area("Description", height=100)
@@ -176,38 +182,54 @@ def show_uploader():
             elif 'access_token' not in st.session_state:
                 st.error("Please log in again.")
             else:
-                with st.spinner("Publishing..."):
-                    try:
-                        auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
-                        
-                        payload = {
-                            'description': description,
-                            'category_id': category_id,
-                            'language': language,
-                            'release_rights': release_rights,
-                        }
-                        files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                        
-                        # Debug: Print payload to see what's being sent (remove this line after testing)
-                        # st.write("Debug - Payload being sent:", payload)
-                        
-                        response = requests.post(
-                            f"{BACKEND_URL}/crafts",
-                            data=payload,
-                            files=files,
-                            headers=auth_header
-                        )
+                # Check file size (1GB = 1073741824 bytes)
+                MAX_FILE_SIZE = 1073741824  # 1GB in bytes
+                uploaded_file.seek(0)  # Reset file pointer to get accurate size
+                file_size = uploaded_file.size
+                uploaded_file.seek(0)  # Reset again for upload
+                
+                if file_size > MAX_FILE_SIZE:
+                    st.error(f"File size ({file_size / (1024*1024):.2f} MB) exceeds the maximum allowed size of 1GB. Please upload a smaller file.")
+                else:
+                    with st.spinner("Publishing..."):
+                        try:
+                            auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
+                            
+                            payload = {
+                                'description': description,
+                                'category_id': category_id,
+                                'language': language,
+                                'release_rights': release_rights,
+                            }
+                            files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                            
+                            response = requests.post(
+                                f"{BACKEND_URL}/crafts",
+                                data=payload,
+                                files=files,
+                                headers=auth_header
+                            )
 
-                        if response.status_code == 200:
-                            st.success("Published successfully!")
-                            time.sleep(1)
-                            st.switch_page("pages/_Community_Gallery.py")
-                        else:
-                            error_msg = response.json().get('detail', 'An unknown error occurred.')
-                            st.error(f"Upload failed: {error_msg}")
+                            if response.status_code == 200:
+                                st.success("Published successfully!")
+                                time.sleep(1)
+                                st.switch_page("pages/_Community_Gallery.py")
+                            else:
+                                error_msg = "Upload failed."
+                                try:
+                                    error_data = response.json()
+                                    if "detail" in error_data:
+                                        error_msg = error_data["detail"]
+                                except:
+                                    error_msg = response.text if response.text else f"Server returned status {response.status_code}"
+                                st.error(f"Upload failed: {error_msg}")
 
-                    except requests.exceptions.ConnectionError as e:
-                        st.error(f"Connection failed: {e}")
+                        except requests.exceptions.ConnectionError as e:
+                            st.error(f"Connection failed. Please check if the backend server is running.")
+                        except requests.exceptions.Timeout as e:
+                            st.error(f"Upload timed out. The file might be too large or the server is slow.")
+                        except Exception as e:
+                            st.error(f"An error occurred: {str(e)}")
 
 # --- Page Router ---
 if not st.session_state.get("authenticated", False):
