@@ -167,6 +167,7 @@ def show_uploader():
         "Literature - Books and poems": "550e8400-e29b-41d4-a716-446655440006",
         "Architecture - Buildings": "550e8400-e29b-41d4-a716-446655440007",
         "Skills - Talents and learning": "550e8400-e29b-41d4-a716-446655440008",
+        "Traditional Images - Cultural and heritage": "550e8400-e29b-41d4-a716-446655440009",
     }
     
     selected_category = st.selectbox(
