@@ -156,8 +156,25 @@ def show_uploader():
     
     description = st.text_area("Description", height=100)
     
-    # Remove category selection - use default category
-    category_id = "category_1"  # Default category
+    # Category selection with valid UUIDs
+    CATEGORIES = {
+        "Fables - Traditional stories": "550e8400-e29b-41d4-a716-446655440000",
+        "Events - Celebrations": "550e8400-e29b-41d4-a716-446655440001",
+        "Music - Audio experiences": "550e8400-e29b-41d4-a716-446655440002",
+        "Places - Landmarks": "550e8400-e29b-41d4-a716-446655440003",
+        "Food - Recipes and culinary": "550e8400-e29b-41d4-a716-446655440004",
+        "People - Personalities": "550e8400-e29b-41d4-a716-446655440005",
+        "Literature - Books and poems": "550e8400-e29b-41d4-a716-446655440006",
+        "Architecture - Buildings": "550e8400-e29b-41d4-a716-446655440007",
+        "Skills - Talents and learning": "550e8400-e29b-41d4-a716-446655440008",
+    }
+    
+    selected_category = st.selectbox(
+        "Category:",
+        options=list(CATEGORIES.keys()),
+        index=0
+    )
+    category_id = CATEGORIES[selected_category]
     
     # Default language - must be one of the supported Indian languages or 'NA'
     language = "NA"

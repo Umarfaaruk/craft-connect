@@ -283,7 +283,7 @@ async def upload_craft_to_corpus(token: str, description: str, file: UploadFile,
     try:
         # Construct the complete data payload required by the Corpus API.
         data = {
-            "title": file.filename,
+            "title": description,  # Use description as title (must have at least 2 meaningful words)
             "description": description,
             "user_id": user_id,
             "category_id": category_id,
