@@ -159,19 +159,8 @@ def show_uploader():
     # Remove category selection - use default category
     category_id = "category_1"  # Default category
     
-    # Language options - only English and Telugu
-    LANGUAGE_OPTIONS = {
-        "NA": "Not Applicable",
-        "english": "English",
-        "telugu": "Telugu"
-    }
-    
-    language = st.selectbox(
-        "Language:",
-        options=list(LANGUAGE_OPTIONS.keys()),
-        format_func=lambda x: LANGUAGE_OPTIONS[x],
-        index=1  # Default to "English"
-    )
+    # Default language
+    language = "english"
     
     # Hidden release_rights field with default value
     release_rights = "Yes"  # Default value
