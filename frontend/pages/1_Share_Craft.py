@@ -210,6 +210,7 @@ def show_uploader():
                             auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
                             
                             payload = {
+                                'title': description,  # Send description as title (must have 2+ meaningful words)
                                 'description': description,
                                 'category_id': category_id,
                                 'language': language,
