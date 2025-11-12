@@ -52,7 +52,7 @@ CATEGORIES = {
 def show_auth_form():
     """Displays the login/signup form in a smaller square box."""
     # Center the form using empty columns
-    col1, col2, col3 = st.columns([2, 1.5, 2])
+    _, col2, _ = st.columns([2, 1.5, 2])
     
     with col2:
         # Tab selection
@@ -133,7 +133,8 @@ def show_auth_form():
                                     error_data = response.json()
                                     if "detail" in error_data:
                                         error_detail = error_data["detail"]
-                                except:
+                                except Exception:
+                                    # Ignore JSON decode errors or unexpected response shapes
                                     pass
                                 st.error(error_detail)
                         except requests.exceptions.ConnectionError:
@@ -177,7 +178,7 @@ def show_uploader():
     
     st.markdown("---")
     
-    col1, col2, col3 = st.columns([1, 2, 1])
+    _, col2, _ = st.columns([1, 2, 1])
     with col2:
         if st.button("Publish to Gallery", type="primary", use_container_width=True):
             if not all([uploaded_file, description.strip(), language]):
@@ -186,6 +187,9 @@ def show_uploader():
                 st.error("Please log in again.")
             else:
                 # Check file size (1GB = 1073741824 bytes)
+                if uploaded_file is None:
+                    st.error("No file uploaded.")
+                    return
                 MAX_FILE_SIZE = 1073741824  # 1GB in bytes
                 uploaded_file.seek(0)  # Reset file pointer to get accurate size
                 file_size = uploaded_file.size
@@ -223,14 +227,15 @@ def show_uploader():
                                     error_data = response.json()
                                     if "detail" in error_data:
                                         error_msg = error_data["detail"]
-                                except:
+                                except Exception:
+                                    # Non-JSON or unexpected response
                                     error_msg = response.text if response.text else f"Server returned status {response.status_code}"
                                 st.error(f"Upload failed: {error_msg}")
 
-                        except requests.exceptions.ConnectionError as e:
-                            st.error(f"Connection failed. Please check if the backend server is running.")
-                        except requests.exceptions.Timeout as e:
-                            st.error(f"Upload timed out. The file might be too large or the server is slow.")
+                        except requests.exceptions.ConnectionError:
+                            st.error("Connection failed. Please check if the backend server is running.")
+                        except requests.exceptions.Timeout:
+                            st.error("Upload timed out. The file might be too large or the server is slow.")
                         except Exception as e:
                             st.error(f"An error occurred: {str(e)}")
 
