@@ -14,7 +14,10 @@ st.set_page_config(layout="wide", page_title="Share Your Craft")
 
 # Increase max upload size for Streamlit (1GB = 1024MB)
 MAX_UPLOAD_SIZE = 1024
-st.set_option("server.maxUploadSize", MAX_UPLOAD_SIZE)
+# NOTE: streamlit config options like `server.maxUploadSize` must be set
+# before the Streamlit runtime starts (for example in `.streamlit/config.toml`).
+# Calling `st.set_option("server.maxUploadSize", ...)` at runtime can raise
+# StreamlitAPIException. The value is kept here for reference.
 
 BACKEND_URL = st.secrets.get("BACKEND_URL", "http://127.0.0.1:8000")
 
