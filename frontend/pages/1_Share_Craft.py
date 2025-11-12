@@ -159,11 +159,11 @@ def show_uploader():
     # Remove category selection - use default category
     category_id = "category_1"  # Default category
     
-    # Default language
-    language = "english"
+    # Default language - must be one of the supported Indian languages or 'NA'
+    language = "NA"
     
-    # Hidden release_rights field with default value
-    release_rights = "Yes"  # Default value
+    # Hidden release_rights field with default value - must be 'creator', 'others', 'downloaded', or 'NA'
+    release_rights = "NA"
     
     st.markdown("---")
     
