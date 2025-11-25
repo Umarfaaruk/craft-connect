@@ -156,40 +156,7 @@ def show_uploader():
     
     description = st.text_area("Description", height=100)
     
-    # Try to fetch category list from backend; fall back to local mapping if unavailable
-    CATEGORIES = {}
-    try:
-        resp = requests.get(f"{BACKEND_URL}/categories", timeout=5)
-        if resp.status_code == 200:
-            cat_data = resp.json()
-            # Expect list of objects with `id` and `name` or `title`.
-            for item in cat_data:
-                # support multiple shapes
-                cid = item.get("id") or item.get("uuid") or item.get("_id")
-                name = item.get("name") or item.get("title") or str(cid)
-                if cid:
-                    CATEGORIES[name] = cid
-    except Exception:
-        # Backend/proxy unavailable; fall back to local mapping
-        CATEGORIES = {
-            "Fables - Traditional stories": "550e8400-e29b-41d4-a716-446655440000",
-            "Events - Celebrations": "550e8400-e29b-41d4-a716-446655440001",
-            "Music - Audio experiences": "550e8400-e29b-41d4-a716-446655440002",
-            "Places - Landmarks": "550e8400-e29b-41d4-a716-446655440003",
-            "Food - Recipes and culinary": "550e8400-e29b-41d4-a716-446655440004",
-            "People - Personalities": "550e8400-e29b-41d4-a716-446655440005",
-            "Literature - Books and poems": "550e8400-e29b-41d4-a716-446655440006",
-            "Architecture - Buildings": "550e8400-e29b-41d4-a716-446655440007",
-            "Skills - Talents and learning": "550e8400-e29b-41d4-a716-446655440008",
-            "Traditional Images - Cultural and heritage": "550e8400-e29b-41d4-a716-446655440009",
-        }
-
-    selected_category = st.selectbox(
-        "Category:",
-        options=list(CATEGORIES.keys()),
-        index=0
-    )
-    category_id = CATEGORIES[selected_category]
+    # Category selection removed per request. The frontend no longer sends a category.
     
     # Default language - must be one of the supported Indian languages or 'NA'
     language = "NA"
@@ -226,7 +193,6 @@ def show_uploader():
                             payload = {
                                 'title': description,  # Send description as title (must have 2+ meaningful words)
                                 'description': description,
-                                'category_id': category_id,
                                 'language': language,
                                 'release_rights': release_rights,
                             }
