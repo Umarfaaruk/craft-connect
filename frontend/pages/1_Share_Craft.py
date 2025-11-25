@@ -189,13 +189,29 @@ def show_uploader():
                     with st.spinner("Publishing..."):
                         try:
                             auth_header = {"Authorization": f"Bearer {st.session_state['access_token']}"}
-                            
+
+                            # Ensure we always send a category_id required by the backend.
+                            # Try to fetch the first available category from the backend proxy.
+                            category_id = None
+                            try:
+                                c_resp = requests.get(f"{BACKEND_URL}/categories", timeout=4)
+                                if c_resp.status_code == 200:
+                                    c_list = c_resp.json()
+                                    if isinstance(c_list, list) and len(c_list) > 0:
+                                        first = c_list[0]
+                                        category_id = first.get("id") or first.get("uuid") or first.get("_id")
+                            except Exception:
+                                # ignore and fall back to None — backend will return validation error
+                                category_id = None
+
                             payload = {
                                 'title': description,  # Send description as title (must have 2+ meaningful words)
                                 'description': description,
                                 'language': language,
                                 'release_rights': release_rights,
                             }
+                            if category_id:
+                                payload['category_id'] = category_id
                             files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                             
                             response = requests.post(
