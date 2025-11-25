@@ -19,6 +19,7 @@ REGISTER_URL = f"{SWECHA_API_BASE_URL}/api/v1/auth/register"
 ME_URL = f"{SWECHA_API_BASE_URL}/api/v1/auth/me"
 RECORDS_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/"
 UPLOAD_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/upload"
+CATEGORIES_URL = os.getenv("SWECHA_CATEGORIES_URL", f"{SWECHA_API_BASE_URL}/api/v1/categories")
 
 async def register_user(username: str, password: str, email: Optional[str] = None) -> Dict[str, str]:
     """
@@ -210,6 +211,37 @@ async def get_all_crafts_from_corpus() -> List[Any]:
                 raise HTTPException(status_code=e.response.status_code, detail=f"Could not fetch crafts from Corpus API: {e.response.text}")
         except httpx.RequestError as e:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+
+
+    async def get_categories_from_corpus() -> List[Dict[str, Any]]:
+        """Fetches category list from the Corpus API and returns as a list of dicts
+        with at least `id` and `name` keys.
+        """
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(CATEGORIES_URL, timeout=30.0)
+                response.raise_for_status()
+                # Expecting a list of categories; attempting to normalize
+                data = response.json()
+                # If API returns object with `results` or `data`, try to extract
+                if isinstance(data, dict):
+                    if "results" in data:
+                        return data["results"]
+                    if "data" in data:
+                        return data["data"]
+                if isinstance(data, list):
+                    return data
+                # Unknown format
+                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected categories response format from Corpus API")
+            except httpx.HTTPStatusError as e:
+                error_body = {}
+                try:
+                    error_body = e.response.json()
+                except Exception:
+                    pass
+                raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch categories: {e.response.text}")
+            except httpx.RequestError as e:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
 
 def get_media_type_from_content(content_type: str) -> str:
     """Determines the media type based on the file's content type."""

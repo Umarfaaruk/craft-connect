@@ -93,3 +93,9 @@ async def upload_craft(
         language=language,
         release_rights=release_rights,
     )
+
+
+@app.get("/categories", tags=["Crafts"])
+async def categories():
+    """Proxy endpoint to fetch categories from the Corpus API."""
+    return await corpus_service.get_categories_from_corpus()
