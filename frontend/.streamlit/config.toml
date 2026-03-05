@@ -1,7 +1,6 @@
 [server]
 maxUploadSize = 1024  # Maximum upload size in MB (1GB = 1024MB)
 maxMessageSize = 1024
-maxRequestSize = 1024
 
 [browser]
 gatherUsageStats = false

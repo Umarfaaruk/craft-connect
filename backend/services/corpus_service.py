@@ -1,416 +1,508 @@
-# backend/services/corpus_service.py
+"""
+Corpus Service — Backend API Bridge
+====================================
+
+This module acts as the bridge between the Craft Connect FastAPI backend
+and the external **Swecha Corpus API** (https://api.corpus.swecha.org).
+
+It handles:
+    • User authentication (login & registration)
+    • Token-based user identity verification
+    • Fetching public craft records for the gallery
+    • Fetching category metadata
+    • Uploading new crafts (with file attachments)
+
+Environment Variables:
+    SWECHA_API_BASE_URL  — Base URL of the Corpus API (default: https://api.corpus.swecha.org)
+    SWECHA_CATEGORIES_URL — Override URL for the categories endpoint (optional)
+
+Dependencies:
+    httpx               — Async HTTP client for auth / read operations
+    requests            — Sync HTTP client for multipart file uploads
+    requests-toolbelt   — Helper for multipart encoding (available, used if needed)
+"""
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Imports
+# ──────────────────────────────────────────────────────────────────────────────
 import os
-import httpx
 import uuid
 import logging
 from typing import Any, Dict, List, Optional
+
+import httpx                          # Async HTTP client (auth & reads)
+import requests                       # Sync HTTP client (file uploads)
 from dotenv import load_dotenv
 from fastapi import HTTPException, UploadFile, status
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+# ──────────────────────────────────────────────────────────────────────────────
+# Configuration
+# ──────────────────────────────────────────────────────────────────────────────
 load_dotenv()
+
+# Logger for this module — all log messages use the module name for filtering
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+)
+
+# Swecha Corpus API endpoints
 SWECHA_API_BASE_URL = os.getenv("SWECHA_API_BASE_URL", "https://api.corpus.swecha.org")
 
-TOKEN_URL = f"{SWECHA_API_BASE_URL}/api/v1/auth/login"
-REGISTER_URL = f"{SWECHA_API_BASE_URL}/api/v1/auth/register"
-ME_URL = f"{SWECHA_API_BASE_URL}/api/v1/auth/me"
-RECORDS_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/"
-UPLOAD_URL = f"{SWECHA_API_BASE_URL}/api/v1/records/upload"
-CATEGORIES_URL = os.getenv("SWECHA_CATEGORIES_URL", f"{SWECHA_API_BASE_URL}/api/v1/categories")
+TOKEN_URL      = f"{SWECHA_API_BASE_URL}/api/v1/auth/login"       # POST — login with phone+password
+REGISTER_URL   = f"{SWECHA_API_BASE_URL}/api/v1/auth/register"    # POST — create new account
+ME_URL         = f"{SWECHA_API_BASE_URL}/api/v1/auth/me"          # GET  — get current user info
+RECORDS_URL    = f"{SWECHA_API_BASE_URL}/api/v1/records/"         # GET  — list all public records
+UPLOAD_URL     = f"{SWECHA_API_BASE_URL}/api/v1/records/upload"   # POST — upload a new record
+CATEGORIES_URL = os.getenv(                                        # GET  — list all categories
+    "SWECHA_CATEGORIES_URL",
+    f"{SWECHA_API_BASE_URL}/api/v1/categories",
+)
 
-async def register_user(username: str, password: str, email: Optional[str] = None) -> Dict[str, str]:
+# Upload constraints
+MAX_FILE_SIZE_BYTES = 1_073_741_824   # 1 GB
+DEFAULT_TIMEOUT     = 30.0            # seconds — used for all API calls
+UPLOAD_TIMEOUT      = 120             # seconds — longer timeout for file uploads
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  AUTHENTICATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def register_user(
+    username: str,
+    password: str,
+    email: Optional[str] = None,
+) -> Dict[str, str]:
     """
-    Registers a new user with the Corpus API.
-    Returns the access token if successful.
+    Register a new user account on the Corpus API.
+
+    The Corpus API expects ``username`` to be a **phone number**.
+    If the API doesn't return a token directly, we automatically
+    attempt a login to obtain one.
+
+    Args:
+        username: Phone number of the new user.
+        password: Account password.
+        email:    Optional email address.
+
+    Returns:
+        dict with ``access_token`` and ``token_type`` keys.
+
+    Raises:
+        HTTPException 400: Invalid input or API rejection.
+        HTTPException 503: Corpus API is unreachable.
     """
-    # Validate inputs
+    # ── Input validation ──
     if not username or not username.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is required")
-    
     if not password or not password.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required")
-    
+
     username = username.strip()
     password = password.strip()
-    
-    logger.info(f"Attempting to register user: {username}")
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    logger.info("Registering new user: %s", username)
+
+    # ── Call Corpus API ──
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         try:
-            # Prepare registration data
-            registration_data = {
-                "username": username,
-                "password": password,
-            }
-            
-            # Add email if provided
+            form_data: Dict[str, str] = {"username": username, "password": password}
             if email and email.strip():
-                registration_data["email"] = email.strip()
-            
-            logger.info(f"Sending registration request to: {REGISTER_URL}")
-            response = await client.post(REGISTER_URL, data=registration_data)
-            logger.info(f"Registration response status: {response.status_code}")
-            logger.info(f"Registration response: {response.text}")
-            
+                form_data["email"] = email.strip()
+
+            response = await client.post(REGISTER_URL, data=form_data)
             response.raise_for_status()
-            response_data = response.json()
-            
-            # Handle different response formats
-            if "access_token" in response_data:
+            body = response.json()
+
+            # The API may return the token under different keys
+            token = body.get("access_token") or body.get("token")
+            if token:
                 return {
-                    "access_token": response_data["access_token"],
-                    "token_type": response_data.get("token_type", "bearer")
+                    "access_token": token,
+                    "token_type": body.get("token_type", "bearer"),
                 }
-            elif "token" in response_data:
-                return {
-                    "access_token": response_data["token"],
-                    "token_type": response_data.get("token_type", "bearer")
-                }
-            else:
-                # If no token in response, try to login immediately
-                logger.info("No token in registration response, attempting login...")
-                return await login_for_token(username, password)
-                
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error: {e.response.status_code}")
-            logger.error(f"Error response: {e.response.text}")
-            error_detail = "Registration failed. Please try again."
-            try:
-                error_body = e.response.json()
-                if "detail" in error_body:
-                    error_detail = error_body["detail"]
-                elif "message" in error_body:
-                    error_detail = error_body["message"]
-                elif isinstance(error_body, str):
-                    error_detail = error_body
-            except Exception:
-                pass
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail)
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+
+            # No token in response → try logging in immediately
+            logger.info("No token in registration response — attempting auto-login")
+            return await login_for_token(username, password)
+
+        except httpx.HTTPStatusError as exc:
+            logger.error("Registration failed (%s): %s", exc.response.status_code, exc.response.text)
+            detail = _extract_error_detail(exc, fallback="Registration failed. Please try again.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Cannot reach Corpus API: {exc}",
+            )
+
 
 async def login_for_token(username: str, password: str) -> Dict[str, str]:
     """
-    Logs in to the external Corpus API by sending credentials.
-    Returns the access token if successful.
+    Authenticate an existing user and retrieve an access token.
+
+    The Corpus API login endpoint expects a JSON body with
+    ``phone`` (not ``username``) and ``password``.
+
+    Args:
+        username: Phone number used during registration.
+        password: Account password.
+
+    Returns:
+        dict with ``access_token`` and ``token_type`` keys.
+
+    Raises:
+        HTTPException 400: Missing credentials.
+        HTTPException 401: Wrong username/password.
+        HTTPException 503: Corpus API is unreachable.
     """
-    # Validate inputs - trim whitespace and check for empty values
+    # ── Input validation ──
     if not username or not username.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username (phone) is required")
-    
     if not password or not password.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required")
-    
-    # Trim the inputs
+
     username = username.strip()
     password = password.strip()
-    
-    async with httpx.AsyncClient() as client:
+
+    # ── Call Corpus API ──
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         try:
+            # NOTE: The Corpus API expects the field name "phone", not "username"
             payload = {"phone": username, "password": password}
-            headers = {"Content-Type": "application/json"}
-            
-            logger.info(f"Attempting login to: {TOKEN_URL}")
-            logger.info(f"Payload: phone={username}")
-            
-            response = await client.post(TOKEN_URL, json=payload, headers=headers, timeout=30.0)
-            
-            logger.info(f"Response status: {response.status_code}")
-            
+            response = await client.post(
+                TOKEN_URL,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
             response.raise_for_status()
-            
-            # Extract the response data
-            response_data = response.json()
-            
-            logger.info(f"Response data keys: {list(response_data.keys())}")
-            
-            # Handle different possible response formats
-            if "access_token" in response_data:
-                # If the API returns access_token, return it with token_type
-                return {
-                    "access_token": response_data["access_token"],
-                    "token_type": "bearer"
-                }
-            elif "token" in response_data:
-                # If the API returns just token, format it properly
-                return {
-                    "access_token": response_data["token"],
-                    "token_type": "bearer"
-                }
-            else:
-                # Return the raw response if it doesn't match expected formats
-                return response_data
-                
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error: {e.response.status_code}")
-            logger.error(f"Error response: {e.response.text}")
-            error_detail = "Login failed. Please check your credentials."
-            try:
-                error_body = e.response.json()
-                if "detail" in error_body:
-                    error_detail = error_body["detail"]
-                elif "message" in error_body:
-                    error_detail = error_body["message"]
-                elif isinstance(error_body, str):
-                    error_detail = error_body
-            except Exception:
-                pass
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail)
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+            body = response.json()
+
+            # Normalise different token field names
+            token = body.get("access_token") or body.get("token")
+            if token:
+                return {"access_token": token, "token_type": "bearer"}
+
+            # Unexpected shape — return raw response (caller may handle it)
+            return body
+
+        except httpx.HTTPStatusError as exc:
+            logger.error("Login failed (%s): %s", exc.response.status_code, exc.response.text)
+            detail = _extract_error_detail(exc, fallback="Login failed. Please check your credentials.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Cannot reach Corpus API: {exc}",
+            )
+
 
 async def get_user_from_token(token: str) -> Dict[str, Any]:
     """
-    Gets the current user's data from the Corpus API using a token.
+    Retrieve the authenticated user's profile from the Corpus API.
+
+    This is used internally to obtain the ``user_id`` needed when
+    uploading crafts.
+
+    Args:
+        token: Bearer access token obtained during login/registration.
+
+    Returns:
+        dict containing user profile fields (at minimum ``id``).
+
+    Raises:
+        HTTPException 401: Token is missing or invalid.
+        HTTPException 503: Corpus API is unreachable.
     """
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is required")
-    
-    async with httpx.AsyncClient() as client:
+
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         try:
-            headers = {"Authorization": f"Bearer {token}"}
-            response = await client.get(ME_URL, headers=headers)
+            response = await client.get(ME_URL, headers=_auth_header(token))
             response.raise_for_status()
             return response.json()
-        except httpx.HTTPStatusError as e:
-            error_detail = "Could not validate token with Corpus API"
-            try:
-                error_body = e.response.json()
-                if "detail" in error_body:
-                    error_detail = error_body["detail"]
-            except Exception:
-                pass
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_detail)
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+
+        except httpx.HTTPStatusError as exc:
+            detail = _extract_error_detail(exc, fallback="Could not validate token")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Cannot reach Corpus API: {exc}",
+            )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CRAFT RECORDS  (read)
+# ══════════════════════════════════════════════════════════════════════════════
 
 async def get_all_crafts_from_corpus() -> List[Any]:
     """
-    Fetches all public craft records from the Corpus API.
-    Returns an empty list if the endpoint is not accessible or requires authentication.
+    Fetch every public craft record from the Corpus API.
+
+    The ``/records/`` endpoint may return **403 Forbidden** if it
+    requires authentication, or **404** if the endpoint doesn't exist.
+    In both cases we gracefully return an empty list so the gallery
+    page can display an "empty" message instead of crashing.
+
+    Returns:
+        List of craft record dicts, or an empty list.
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         try:
-            # Note: This assumes the /records endpoint is public.
             response = await client.get(RECORDS_URL)
             response.raise_for_status()
             return response.json()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 403:
-                # If forbidden, return empty list - gallery will show "empty" message
-                logger.warning("Corpus API returned 403 Forbidden. The /records endpoint may require authentication.")
+
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (403, 404):
+                logger.warning("Records endpoint returned %s — returning empty list", exc.response.status_code)
                 return []
-            elif e.response.status_code == 404:
-                # If not found, return empty list
-                logger.warning("Corpus API endpoint not found. Returning empty list.")
-                return []
-            else:
-                raise HTTPException(status_code=e.response.status_code, detail=f"Could not fetch crafts from Corpus API: {e.response.text}")
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=f"Could not fetch crafts: {exc.response.text}",
+            )
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Cannot reach Corpus API: {exc}",
+            )
 
 
-    async def get_categories_from_corpus() -> List[Dict[str, Any]]:
-        """Fetches category list from the Corpus API and returns as a list of dicts
-        with at least `id` and `name` keys.
-        """
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(CATEGORIES_URL, timeout=30.0)
-                response.raise_for_status()
-                # Expecting a list of categories; attempting to normalize
-                data = response.json()
-                # If API returns object with `results` or `data`, try to extract
-                if isinstance(data, dict):
-                    if "results" in data:
-                        return data["results"]
-                    if "data" in data:
-                        return data["data"]
-                if isinstance(data, list):
-                    return data
-                # Unknown format
-                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unexpected categories response format from Corpus API")
-            except httpx.HTTPStatusError as e:
-                error_body = {}
-                try:
-                    error_body = e.response.json()
-                except Exception:
-                    pass
-                raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch categories: {e.response.text}")
-            except httpx.RequestError as e:
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
-
-def get_media_type_from_content(content_type: str) -> str:
-    """Determines the media type based on the file's content type."""
-    if not content_type:
-        return "text"
-    content_type = content_type.lower()
-    if "video" in content_type:
-        return "video"
-    if "audio" in content_type:
-        return "audio"
-    if "image" in content_type or "pdf" in content_type:
-        return "image"
-    return "text"
-
-async def upload_craft_to_corpus(token: str, description: str, file: UploadFile, category_id: str, language: str, release_rights: str) -> Dict[str, Any]:
+async def get_categories_from_corpus() -> List[Dict[str, Any]]:
     """
-    Uploads a new craft to the Corpus API with all required fields.
+    Fetch the list of craft categories from the Corpus API.
+
+    The API may return one of several shapes:
+        • A plain list ``[{id, name}, ...]``
+        • An object ``{"results": [...]}`` or ``{"data": [...]}``
+
+    We normalise all of these into a flat list before returning.
+
+    Returns:
+        List of category dicts, each with at least ``id`` and ``name``.
+
+    Raises:
+        HTTPException 502: Response format is unrecognised.
+        HTTPException 503: Corpus API is unreachable.
     """
-    # Validate inputs
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is required")
-    
-    if not file or not file.filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is required")
-    
-    if not description:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Description is required")
-    
-    if not category_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category ID is required")
-    
-    if not language:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Language is required")
-    
-    if not release_rights:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Release rights is required")
-    
-    # Check file size (1GB = 1073741824 bytes)
-    MAX_FILE_SIZE = 1073741824
-    file_content = None
-    
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        try:
+            response = await client.get(CATEGORIES_URL)
+            response.raise_for_status()
+            data = response.json()
+
+            # Normalise response shape
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                for key in ("results", "data"):
+                    if key in data:
+                        return data[key]
+
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unexpected categories response format from Corpus API",
+            )
+
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=f"Failed to fetch categories: {exc.response.text}",
+            )
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Cannot reach Corpus API: {exc}",
+            )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CRAFT UPLOAD
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def upload_craft_to_corpus(
+    token: str,
+    description: str,
+    file: UploadFile,
+    category_id: str,
+    language: str,
+    release_rights: str,
+) -> Dict[str, Any]:
+    """
+    Upload a new craft record (with an attached file) to the Corpus API.
+
+    Workflow:
+        1. Validate all required fields.
+        2. Read the file into memory and check size (max 1 GB).
+        3. Resolve the uploader's ``user_id`` from their token.
+        4. Build a multipart form payload with all metadata + file.
+        5. POST to the Corpus ``/records/upload`` endpoint.
+
+    Args:
+        token:          Bearer token of the authenticated uploader.
+        description:    Human-readable description (also used as ``title``).
+        file:           The uploaded file (image or video).
+        category_id:    ID of the craft category.
+        language:       Language code (e.g. ``"telugu"``, ``"NA"``).
+        release_rights: One of ``"creator"``, ``"others"``, ``"downloaded"``, ``"NA"``.
+
+    Returns:
+        The JSON response from the Corpus API on success.
+
+    Raises:
+        HTTPException 400: Missing/invalid input or unreadable file.
+        HTTPException 401: Invalid token.
+        HTTPException 403: Cannot determine user ID.
+        HTTPException 413: File exceeds 1 GB.
+        HTTPException 503: Corpus API is unreachable.
+    """
+    # ── 1. Validate inputs ──
+    _require(token, "Token is required", status.HTTP_401_UNAUTHORIZED)
+    _require(file and file.filename, "File is required")
+    _require(description, "Description is required")
+    _require(category_id, "Category ID is required")
+    _require(language, "Language is required")
+    _require(release_rights, "Release rights is required")
+
+    # ── 2. Read file & enforce size limit ──
     try:
         file_content = await file.read()
-        file_size = len(file_content)
-        
-        if file_size > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File size ({file_size / (1024*1024):.2f} MB) exceeds the maximum allowed size of 1GB"
-            )
-        
-        # Store file content - it's already read, no need to read again
-        # We'll use this file_content later for the upload
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Could not read file: {str(e)}")
-    
-    # file_content is guaranteed to be bytes here (from file.read())
-    
-    # Get the user's ID from their token to associate with the upload.
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not read uploaded file: {exc}",
+        )
+
+    file_size_mb = len(file_content) / (1024 * 1024)
+    if len(file_content) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size ({file_size_mb:.1f} MB) exceeds the 1 GB limit",
+        )
+
+    logger.info("File accepted: %s (%.1f MB)", file.filename, file_size_mb)
+
+    # ── 3. Resolve uploader identity ──
     user_data = await get_user_from_token(token)
     user_id = user_data.get("id")
     if not user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Could not determine user ID for upload.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not determine user ID for upload",
+        )
 
-    # Get content type with fallback for None values
+    # ── 4. Build multipart form payload ──
     content_type = file.content_type or "application/octet-stream"
 
-    # Use requests library directly for better multipart form handling
-    import requests
-    
-    data: Dict[str, Any] = {}  # Initialize before try block to avoid unbound warning
+    form_fields: Dict[str, str] = {
+        "title":          description,                           # Corpus API requires ≥2 meaningful words
+        "description":    description,
+        "user_id":        str(user_id),
+        "category_id":    str(category_id),
+        "language":       language,
+        "release_rights": release_rights,
+        "media_type":     _detect_media_type(content_type),      # "image", "video", "audio", or "text"
+        "upload_uuid":    str(uuid.uuid4()),                     # Unique ID for this upload session
+        "filename":       file.filename,
+        "total_chunks":   "1",                                   # We upload in a single chunk
+    }
+
+    files_payload = {
+        "file": (file.filename, file_content, content_type),
+    }
+
+    logger.info("Uploading craft '%s' → %s", description[:60], UPLOAD_URL)
+
+    # ── 5. POST to Corpus API ──
     try:
-        # Construct the complete data payload required by the Corpus API.
-        data = {
-            "title": description,  # Use description as title (must have at least 2 meaningful words)
-            "description": description,
-            "user_id": user_id,
-            "category_id": category_id,
-            "language": language,
-            "release_rights": release_rights,
-            "media_type": get_media_type_from_content(content_type),
-            "upload_uuid": str(uuid.uuid4()),
-            "filename": file.filename,
-            "total_chunks": 1,
-        }
-        
-        # Debug: Print data being sent to Corpus API
-        logger.info(f"DEBUG - Data being sent to Corpus API: {data}")
-        
-        # Use file_content that was already read during size check
-        # We already have file_content from the size validation above
-        
-        # Prepare form data (all fields as strings)
-        form_data: Dict[str, str] = {}
-        for key, value in data.items():
-            form_data[key] = str(value)
-        
-        # Prepare files
-        files_data = {
-            'file': (file.filename, file_content, content_type)
-        }
-        
-        # Prepare headers
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        logger.info(f"DEBUG - Upload URL: {UPLOAD_URL}")
-        logger.info(f"DEBUG - Form data keys: {list(form_data.keys())}")
-        logger.info(f"DEBUG - Form data values: {form_data}")
-        logger.info(f"DEBUG - Files: {list(files_data.keys())}")
-        logger.info(f"DEBUG - Headers: {headers}")
-        
-        # Try different approaches for sending data
-        logger.info("DEBUG - Attempting upload with form data")
-        
-        # Method 1: Try with form data and files
-        try:
-            response = requests.post(UPLOAD_URL, data=form_data, files=files_data, headers=headers, timeout=60)
-            response.raise_for_status()
-            logger.info("DEBUG - Upload successful with form data")
-            return response.json()
-        except requests.exceptions.HTTPError as e:
-            logger.warning(f"DEBUG - Form data failed: {e.response.status_code} - {e.response.text}")
-            
-            # Method 2: Try with JSON data (without file first)
-            logger.info("DEBUG - Trying with JSON data")
-            try:
-                json_headers = headers.copy()
-                json_headers["Content-Type"] = "application/json"
-                
-                # Remove file from data for JSON
-                json_data = data.copy()
-                
-                response = requests.post(UPLOAD_URL, json=json_data, headers=json_headers, timeout=60)
-                response.raise_for_status()
-                logger.info("DEBUG - Upload successful with JSON data")
-                return response.json()
-            except requests.exceptions.HTTPError as e2:
-                logger.warning(f"DEBUG - JSON data failed: {e2.response.status_code} - {e2.response.text}")
-                
-                # Method 3: Try with multipart/form-data explicitly
-                logger.info("DEBUG - Trying with explicit multipart")
-                try:
-                    # Create a proper multipart form
-                    from requests_toolbelt.multipart.encoder import MultipartEncoder  # type: ignore
-                    
-                    multipart_data = MultipartEncoder(
-                        fields={
-                            **form_data,
-                            'file': (file.filename, file_content, content_type)
-                        }
-                    )
-                    
-                    multipart_headers = headers.copy()
-                    multipart_headers['Content-Type'] = multipart_data.content_type
-                    
-                    response = requests.post(UPLOAD_URL, data=multipart_data, headers=multipart_headers, timeout=60)
-                    response.raise_for_status()
-                    logger.info("DEBUG - Upload successful with explicit multipart")
-                    return response.json()
-                except Exception as e3:
-                    logger.error(f"DEBUG - Explicit multipart failed: {str(e3)}")
-                    raise e  # Re-raise the original error
-        
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"Corpus API HTTP error: {e.response.status_code}")
-        logger.error(f"Corpus API error response: {e.response.text}")
-        logger.error(f"Request data sent: {data}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"Corpus API upload failed: {e.response.text}")
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Failed to connect to Corpus API: {str(e)}")
+        response = requests.post(
+            UPLOAD_URL,
+            data=form_fields,
+            files=files_payload,
+            headers=_auth_header(token),
+            timeout=UPLOAD_TIMEOUT,
+        )
+        response.raise_for_status()
+        logger.info("Upload successful — record created")
+        return response.json()
+
+    except requests.exceptions.HTTPError as exc:
+        logger.error("Upload failed (%s): %s", exc.response.status_code, exc.response.text)
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"Corpus API upload failed: {exc.response.text}",
+        )
+
+    except requests.exceptions.RequestException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Cannot reach Corpus API: {exc}",
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PRIVATE HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _auth_header(token: str) -> Dict[str, str]:
+    """Return an ``Authorization: Bearer <token>`` header dict."""
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _detect_media_type(content_type: str) -> str:
+    """
+    Map a MIME content-type string to a simplified media type label.
+
+    Examples:
+        ``"image/png"``         → ``"image"``
+        ``"video/mp4"``         → ``"video"``
+        ``"audio/mpeg"``        → ``"audio"``
+        ``"application/pdf"``   → ``"image"``   (treated as visual content)
+        ``"text/plain"``        → ``"text"``
+    """
+    if not content_type:
+        return "text"
+    ct = content_type.lower()
+    if "video" in ct:
+        return "video"
+    if "audio" in ct:
+        return "audio"
+    if "image" in ct or "pdf" in ct:
+        return "image"
+    return "text"
+
+
+def _require(
+    value: Any,
+    message: str,
+    status_code: int = status.HTTP_400_BAD_REQUEST,
+) -> None:
+    """Raise ``HTTPException`` if *value* is falsy."""
+    if not value:
+        raise HTTPException(status_code=status_code, detail=message)
+
+
+def _extract_error_detail(
+    exc: httpx.HTTPStatusError,
+    *,
+    fallback: str = "An error occurred",
+) -> str:
+    """
+    Try to pull a human-readable error message from an HTTP error response.
+
+    Checks for ``detail`` and ``message`` keys in the JSON body, and
+    falls back to the provided *fallback* string if nothing is found.
+    """
+    try:
+        body = exc.response.json()
+        return body.get("detail") or body.get("message") or fallback
+    except Exception:
+        return fallback
