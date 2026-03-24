@@ -2,7 +2,7 @@
 
 **Preserving Traditional Crafts & Cultural Heritage**
 
-Craft Connect is a web application built in partnership with [Swecha](https://swecha.org/) to document, preserve, and celebrate traditional crafts for future generations.
+Craft Connect is a web application developed in collaboration with [Swecha](https://swecha.org/) to document and preserve traditional crafts for future generations.
 
 ---
 
@@ -92,7 +92,7 @@ streamlit run Home.py
 
 ### 3. Open the app
 
-Visit **http://localhost:8501** in your browser.
+Visit **[Craft Connect](https://craft-connect.streamlit.app/)** in your browser.
 
 ---
 
